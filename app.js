@@ -359,6 +359,15 @@ $('#speed').onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEED
 function setBig(on) { P.classList.toggle('big', on); $('#scrim').hidden = !on; $('#mode').setAttribute('aria-pressed', on); $('#mode').textContent = on ? 'صوت فقط' : 'عرض المرئي'; }
 $('#mode').onclick = () => setBig(!P.classList.contains('big'));
 $('#scrim').onclick = () => setBig(false);
+function closePlayer() {  // keep the place, stop the sound, hide the bar
+  if (cur && yt && yt.getCurrentTime) { const t = yt.getCurrentTime(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } }
+  clearInterval(tick); if (yt && yt.stopVideo) yt.stopVideo();
+  setBig(false); P.hidden = true; cur = null;
+  document.querySelectorAll('.lesson.now').forEach(el => el.classList.remove('now'));
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+  keepFocus(route);
+}
+$('#close').onclick = closePlayer;
 addEventListener('keydown', e => { if (e.key === 'Escape') setBig(false); });
 addEventListener('pagehide', () => { if (cur && yt && yt.getCurrentTime) { const t = yt.getCurrentTime(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } } });
 

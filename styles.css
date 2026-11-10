@@ -178,3 +178,5 @@ footer a{color:var(--gold)}
   .fbox[open]>summary::after{content:"▴"}
   .fgrid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
 }
+.close{width:44px;height:44px;border-radius:50%;border:1px solid rgba(226,199,146,.35);background:transparent;color:var(--ivory);display:flex;align-items:center;justify-content:center;flex:none}
+.close:hover{background:rgba(226,199,146,.15)}
