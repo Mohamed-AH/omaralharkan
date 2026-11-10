@@ -52,8 +52,8 @@ function contCard(x, big) {
   return `<button type="button" class="cont rise" style="animation-delay:.35s" data-play="${l[0]}">
     <div class="row"><span class="play">${I.play}</span><div style="min-width:0">
       <div class="k">${big ? 'أكمل من حيث توقفت' : 'تابع'}</div>
-      <div class="t">${esc(x.b.title)} · ${AR(l[1])}</div>
-      <div class="s">${esc(title(l))}${l[3] && at ? ` · بقي ${mins(l[3] - at)}` : ''}</div></div></div>
+      <div class="t">${esc(x.b.title)}، الدرس ${AR(l[1])}</div>
+      <div class="s">${esc(title(l))}${l[3] && at ? `، بقي ${mins(l[3] - at)}` : ''}</div></div></div>
     <div class="bar"><i style="width:${p.toFixed(1)}%"></i></div></button>`;
 }
 function bookCard(b, i) {
@@ -80,7 +80,7 @@ function home() {
   const ongoing = C.books.filter(b => b.ongoing);
   main.innerHTML = `
     ${nl ? `<div class="strip rise" style="animation-delay:.45s"><span class="k">${nl.l[4] === C.updated ? 'جديد اليوم' : 'أحدث درس'}</span>
-      <a class="t" href="#/book/${nl.b.id}">${esc(nl.b.title)} · ${esc(title(nl.l))}</a><span class="d">${hijri(nl.l[4])} · ${mins(nl.l[3])}</span>
+      <a class="t" href="#/book/${nl.b.id}">${esc(nl.b.title)}: ${esc(title(nl.l))}</a><span class="d">${hijri(nl.l[4])}، ${mins(nl.l[3])}</span>
       <button class="go" type="button" data-play="${nl.l[0]}">استمع ←</button></div>` : ''}
     ${catFilter === 'الكل' ? `<section class="block"><div class="head"><div><h2>يُشرح الآن</h2><div class="n">شروح قائمة تُضاف إليها الدروس</div></div></div>
       <div class="grid">${ongoing.map(bookCard).join('')}</div></section>` : ''}
@@ -100,7 +100,7 @@ function bookPage(id, ei = 0) {
   setHero(`<div class="sub-hero"><div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:end">
     <div><div class="k rise">${esc(b.cat)}</div><h1 class="rise" style="animation-delay:.08s">${esc(b.title)}</h1>${b.author ? `<div class="a rise" style="animation-delay:.14s">${esc(b.author)}</div>` : ''}</div>
     ${b.exps.length > 1 ? `<div class="tabs rise" role="tablist" aria-label="الشرح" style="animation-delay:.2s">${b.exps.map((x, i) =>
-      `<button type="button" role="tab" aria-selected="${i === ei}" data-exp="${i}">${esc(x.label)} · ${dars(x.lessons.length)}</button>`).join('')}</div>` : ''}
+      `<button type="button" role="tab" aria-selected="${i === ei}" data-exp="${i}">${esc(x.label)} (${dars(x.lessons.length)})</button>`).join('')}</div>` : ''}
   </div></div>`);
   const done = e.lessons.filter(l => heard.has(l[0])).length;
   let list = e.lessons.map((l, i) => [l, i]);
@@ -113,7 +113,7 @@ function bookPage(id, ei = 0) {
   main.innerHTML = `<div class="panel rise">
     <div class="tools">
       ${e.lessons.length <= 60 ? `<div class="beads" aria-hidden="true">${e.lessons.map(l => `<span class="${heard.has(l[0]) ? 'on' : ''}"></span>`).join('')}</div>` : ''}
-      <span class="n">سمعت ${AR(done)} من ${AR(e.lessons.length)} · ${hijri(e.from)} – ${hijri(e.to)}</span>
+      <span class="n">سمعت ${AR(done)} من ${AR(e.lessons.length)}، من ${hijri(e.from)} إلى ${hijri(e.to)}</span>
       <span class="sp"></span>
       <label class="find">${I.find}<span class="sr">ابحث في الدروس</span><input id="bq" type="search" placeholder="ابحث في هذا الشرح أو رقم الدرس" value="${esc(bookState.q)}"></label>
       <button class="btn" type="button" data-order aria-pressed="${bookState.order === 'desc'}">${bookState.order === 'desc' ? 'الأحدث أولاً' : 'من الأول'}</button>
@@ -122,7 +122,7 @@ function bookPage(id, ei = 0) {
     </div>
     <ol class="lessons">${shown.map(([l]) => {
       const at = resume[l[0]], h = heard.has(l[0]);
-      const st = [hijri(l[4]), h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join(' · ');
+      const st = [hijri(l[4]), h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
       return `<li class="lesson${l[0] === nowId ? ' now' : ''}${h ? ' heard' : ''}"><span class="no">${AR(l[1])}</span>
         <span class="tx"><span class="tt">${esc(title(l))}</span><span class="ss">${st}</span></span>
         <span class="du">${mins(l[3])}</span>
@@ -148,7 +148,7 @@ function searchPage(q) {
     ${books.length ? `<h2 style="font-family:var(--f-title);font-size:24px;margin:16px 0 8px">الكتب</h2><div class="grid">${books.map(bookCard).join('')}</div>` : ''}
     <h2 style="font-family:var(--f-title);font-size:24px;margin:24px 0 8px">الدروس <span style="font-size:15px;color:var(--soft)">(${AR(hits.length)})</span></h2>
     ${hits.length ? `<ul class="results">${hits.slice(0, 150).map(({ b, l }) => `<li><button type="button" data-play="${l[0]}">
-      <span class="lesson" style="border:0;flex:1;min-height:0"><span class="no">${AR(l[1])}</span><span class="tx"><span class="b">${esc(b.title)}</span><span class="t" style="display:block">${mark(title(l))}</span><span class="ss">${hijri(l[4])} · ${mins(l[3])}</span></span></span></button></li>`).join('')}</ul>`
+      <span class="lesson" style="border:0;flex:1;min-height:0"><span class="no">${AR(l[1])}</span><span class="tx"><span class="b">${esc(b.title)}</span><span class="t" style="display:block">${mark(title(l))}</span><span class="ss">${hijri(l[4])}، ${mins(l[3])}</span></span></span></button></li>`).join('')}</ul>`
       : '<p class="empty">لم نجد دروساً بهذه الكلمات. جرّب كلمة أقصر أو اسم الباب.</p>'}</div>`;
 }
 
@@ -180,7 +180,7 @@ function route() {
   else if (parts[0] === 'search') { const q = new URLSearchParams(qs).get('q') || ''; $('#q').value = q; searchPage(q); }
   else if (parts[0] === 'mine') mine();
   else notFound();
-  document.title = (parts[0] === 'book' && BOOK[parts[1]] ? BOOK[parts[1]].title + ' · ' : '') + 'دروس الشيخ عمر بن حمد الحركان';
+  document.title = (parts[0] === 'book' && BOOK[parts[1]] ? BOOK[parts[1]].title + ' | ' : '') + 'دروس الشيخ عمر بن حمد الحركان';
 }
 addEventListener('hashchange', () => { route(); scrollTo({ top: 0 }); });
 
@@ -212,7 +212,7 @@ function play(vid) {
   const x = VID[vid]; if (!x) return;
   cur = x; pendingStart = heard.has(vid) ? 0 : (resume[vid] || 0);
   recent = [{ v: vid, b: x.b.id, e: x.ei }, ...recent.filter(r => r.b !== x.b.id)].slice(0, 12); store.set('recent', recent);
-  P.hidden = false; $('#nowT').textContent = title(x.l); $('#nowB').textContent = `· ${x.b.title} ${AR(x.l[1])}`;
+  P.hidden = false; $('#nowT').textContent = title(x.l); $('#nowB').textContent = `— ${x.b.title}، الدرس ${AR(x.l[1])}`;
   $('#dur').textContent = fmt(x.l[3]);
   if (!ytReady) loadYT(); else start();
   document.querySelectorAll('.lesson.now').forEach(el => el.classList.remove('now'));

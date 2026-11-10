@@ -48,8 +48,8 @@ def topic(title, key, num):
         if re.fullmatch(r'[\d\s()\-.]*', p) or len(p) < 2: continue
         if p.count('(') != p.count(')'): p = p.replace('(', '').replace(')', '')
         out.append(p)
-    s = ' · '.join(out[:2]).strip()
-    s = re.sub(r'للشيخ\s*عمر\s*الحركان|·\s*شرح$|\bقناة$|-?\s*سلسلة دروس قد افلح من تزكى', '', s)
+    s = '، '.join(out[:2]).strip()
+    s = re.sub(r'للشيخ\s*عمر\s*الحركان|،\s*شرح$|\bقناة$|-?\s*سلسلة دروس قد افلح من تزكى', '', s)
     s = re.sub(r'(14\d\d|\d{1,2})\s*[/\\]\s*\d{1,2}\s*[/\\]\s*(\d{1,4})', '', s)
     s = re.sub(r'^[،,\s]*(الدرس|المجلس)\s*[\(\[]?\s*[\d]+\s*[\)\]]?\s*', '', s)
     s = re.sub(r'^[\[(]?المجلس [^\])]*[\])]?\s*$', '', s)
@@ -128,7 +128,7 @@ SITE = os.environ.get('SITE_URL', 'https://omaralharkan.pages.dev/').rstrip('/')
 from xml.sax.saxutils import escape as x
 by_id = {l[0]: (b, l) for b in out_books for e in b['exps'] for l in e['lessons']}
 newest = sorted(by_id.values(), key=lambda bl: bl[1][4], reverse=True)[:40]
-items = ''.join(f"""<item><title>{x(b['title'])} · {x(l[2] or 'الدرس ' + str(l[1]).translate(AR))}</title><link>{SITE}#/book/{b['id']}</link>
+items = ''.join(f"""<item><title>{x(b['title'])}: {x(l[2] or 'الدرس ' + str(l[1]).translate(AR))}</title><link>{SITE}#/book/{b['id']}</link>
 <guid isPermaLink="false">{l[0]}</guid><pubDate>{datetime.datetime.fromisoformat(l[4]).strftime('%a, %d %b %Y 12:00:00 +0300')}</pubDate>
 <enclosure url="https://www.youtube.com/watch?v={l[0]}" type="text/html" length="0"/></item>""" for b, l in newest if l[4])
 open(os.path.join(ROOT, 'feed.xml'), 'w', encoding='utf-8').write(f"""<?xml version="1.0" encoding="utf-8"?>
