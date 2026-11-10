@@ -150,3 +150,31 @@ footer a{color:var(--gold)}
   .speeds button:not([aria-pressed="true"]){display:none}
   .video{width:120px;height:68px}
 }
+
+/* filters, active filters, pager */
+.filters{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:end;padding:16px 26px 6px}
+.filters .find{height:44px;max-width:none;flex:2 1 240px}
+.fl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--soft);flex:1 1 140px;max-width:220px}
+.fl select{height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:14px;color:var(--ink);max-width:100%}
+.active{display:flex;flex-wrap:wrap;gap:6px;padding:6px 26px 0}
+.chip.x{height:34px;font-size:13px;background:var(--gold-l);border-color:var(--gold-l);color:var(--green)}
+.count{padding:10px 26px 4px;font-size:13px;color:var(--soft);min-height:8px}
+.lesson .bk{color:var(--gold);text-decoration:none;font-weight:600}
+.lesson .bk:hover{text-decoration:underline}
+.pager{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:16px 16px 4px}
+.pg{min-width:44px;height:44px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:transparent;font-size:15px;display:inline-flex;align-items:center;justify-content:center}
+.pg.on{background:var(--green);color:var(--ivory);border-color:var(--green)}
+.pg.w{padding:0 16px;font-size:14px}
+.pg:disabled{opacity:.4;cursor:default}
+.gap{color:var(--soft);padding:0 2px}
+@media (max-width:640px){.filters,.active,.count{padding-inline:16px}.fl{max-width:none;flex:1 1 45%}}
+.fbox{flex:999 1 100%;display:contents}
+.fbox>summary{display:none}
+.fgrid{display:contents}
+@media (max-width:640px){
+  .fbox{display:block;flex:1 1 100%}
+  .fbox>summary{display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;cursor:pointer;list-style:none}
+  .fbox>summary::after{content:"▾";margin-inline-start:auto;color:var(--soft)}
+  .fbox[open]>summary::after{content:"▴"}
+  .fgrid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+}

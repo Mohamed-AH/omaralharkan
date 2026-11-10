@@ -58,6 +58,7 @@ for b in C['books']:
                          f'<div class="sub-hero"><div class="k">{e(b["cat"])}</div><h1>{e(b["title"])}</h1>' + (f'<div class="a">{e(b["author"])}</div>' if b['author'] else '') + '</div>',
                          f'<div class="panel"><ol class="lessons">{lis}</ol></div>'))
 
+urls.append(page('lessons/', f'كل الدروس | {NAME}', 'جميع دروس الشيخ عمر بن حمد الحركان مع البحث والتصفية حسب الفن والكتاب والسنة والمدة.', '', ''))
 page('search/', f'البحث | {NAME}', 'ابحث في دروس الشيخ عمر بن حمد الحركان.', '', '', index=False)
 page('mine/', f'ما أتابعه | {NAME}', 'الدروس التي تتابعها على هذا الجهاز.', '', '', index=False)
 nf = TPL.replace('<title>دروس الشيخ عمر بن حمد الحركان</title>', f'<title>الصفحة غير موجودة | {NAME}</title>').replace('</head>', '<meta name="robots" content="noindex">\n</head>', 1)

@@ -64,7 +64,7 @@ function bookCard(b, i) {
     <span class="m"><span>${dars(b.count)}</span><span class="${b.ongoing ? 'on' : ''}">${b.ongoing ? 'يُشرح الآن' : 'مكتمل'}</span></span></a>`;
 }
 
-let catFilter = 'الكل';
+let catFilter = 'الكل', bookSort = 'cat', bookStatus = 'all';
 function home() {
   const x = current();
   setHero(`<div class="hero"><div class="who">
@@ -75,7 +75,10 @@ function home() {
     ${x ? contCard(x, true) : ''}</div>`);
   const nl = VID[C.latest[0]?.[0]];
   const cats = ['الكل', ...C.cats.map(c => c.name)];
-  const books = C.books.filter(b => catFilter === 'الكل' || b.cat === catFilter);
+  let books = C.books.filter(b => (catFilter === 'الكل' || b.cat === catFilter) && (bookStatus === 'all' || (bookStatus === 'on') === b.ongoing));
+  if (bookSort === 'count') books = [...books].sort((a, b) => b.count - a.count);
+  if (bookSort === 'last') books = [...books].sort((a, b) => (b.last || '').localeCompare(a.last || ''));
+  if (bookSort === 'abc') books = [...books].sort((a, b) => a.title.replace(/^(ال|كتاب |التعليق على )/g, '').localeCompare(b.title.replace(/^(ال|كتاب |التعليق على )/g, ''), 'ar'));
   const big = books.filter(b => b.count >= 10), small = books.filter(b => b.count < 10);
   const ongoing = C.books.filter(b => b.ongoing);
   main.innerHTML = `
@@ -84,72 +87,148 @@ function home() {
       <button class="go" type="button" data-play="${nl.l[0]}">استمع ←</button></div>` : ''}
     ${catFilter === 'الكل' ? `<section class="block"><div class="head"><div><h2>يُشرح الآن</h2><div class="n">شروح قائمة تُضاف إليها الدروس</div></div></div>
       <div class="grid">${ongoing.map(bookCard).join('')}</div></section>` : ''}
-    <section class="block" id="all"><div class="head"><div><h2>الشروح</h2><div class="n">${AR(C.books.length)} شرحاً وسلسلة في ${AR(C.cats.length)} فنون</div></div>
+    <section class="block" id="all"><div class="head"><div><h2>الشروح</h2><div class="n">${AR(books.length)} من ${AR(C.books.length)} شرحاً وسلسلة</div></div>
       <div class="chips" role="group" aria-label="الفن">${cats.map(c => `<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${c === catFilter}">${esc(c)}</button>`).join('')}</div></div>
-      <div class="grid">${big.map(bookCard).join('')}</div>
+      <div class="filters" style="padding:0 0 18px">
+        <label class="fl"><span>الترتيب</span><select id="bsort">${[['cat', 'حسب الفن'], ['count', 'الأكثر دروساً'], ['last', 'آخر درس أولاً'], ['abc', 'أبجدياً']].map(([v, t]) => `<option value="${v}"${v === bookSort ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label class="fl"><span>الحالة</span><select id="bstat">${[['all', 'الكل'], ['on', 'يُشرح الآن'], ['done', 'مكتمل']].map(([v, t]) => `<option value="${v}"${v === bookStatus ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        <a class="btn" href="/lessons/" style="display:inline-flex;align-items:center;text-decoration:none;align-self:end">تصفّح كل الدروس ←</a>
+      </div>
+      <div class="grid">${big.map(bookCard).join('') || '<p class="empty">لا توجد شروح بهذه التصفية</p>'}</div>
       ${small.length ? `<h3 style="font-family:var(--f-title);font-size:24px;margin:40px 0 8px">رسائل ودروس قصيرة</h3>
         <ul class="small-list">${small.map(b => `<li><a href="/book/${b.id}/"><span>${esc(b.title)}</span><span>${dars(b.count)}</span></a></li>`).join('')}</ul>` : ''}
     </section>`;
 }
 
-let bookState = { order: 'asc', hide: false, q: '', show: 80 };
+/* ---------- lesson lists: search, filters, sort and pages, all kept in the address (?q=&sort=&page=…) ---------- */
+const Q = () => Object.fromEntries(new URLSearchParams(location.search));
+function setQ(patch, push) {
+  const p = { ...Q(), ...patch };
+  if (!('page' in patch)) delete p.page;
+  for (const k of Object.keys(p)) if (p[k] === '' || p[k] == null || p[k] === 'all') delete p[k];
+  const qs = new URLSearchParams(p).toString();
+  const url = location.pathname + (qs ? '?' + qs : '');
+  setTimeout(() => go(url, !push, true));  // after the current change/blur events finish
+}
+const HY = new Map();
+const hYear = iso => { if (!iso) return 0; const y = iso.slice(0, 7); if (!HY.has(y)) { let v = 0; try { v = +new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', { year: 'numeric' }).format(new Date(iso + 'T12:00:00')).replace(/\D/g, ''); } catch { } HY.set(y, v); } return HY.get(y); };
+const LENS = { s: ['أقل من ٢٠ دقيقة', 0, 1200], m: ['٢٠–٤٥ دقيقة', 1200, 2700], l: ['أكثر من ٤٥ دقيقة', 2700, 1e9] };
+const STS = { unheard: 'لم أسمعه', progress: 'بدأته ولم أكمله', heard: 'سمعته', new: 'جديد منذ آخر زيارة' };
+function applyFilters(rows, q) {
+  if (q.q) { const ws = norm(q.q).trim().split(/\s+/).filter(Boolean);
+    rows = rows.filter(r => { const t = r.n || (r.n = norm(title(r.l) + ' ' + r.b.title + ' ' + r.l[1])); return ws.every(w => t.includes(w)); }); }
+  if (q.cat) rows = rows.filter(r => r.b.cat === q.cat);
+  if (q.book) rows = rows.filter(r => r.b.id === q.book);
+  if (q.year) rows = rows.filter(r => String(hYear(r.l[4])) === q.year);
+  if (q.len && LENS[q.len]) { const [, a, z] = LENS[q.len]; rows = rows.filter(r => r.l[3] >= a && r.l[3] < z); }
+  if (q.st === 'unheard') rows = rows.filter(r => !heard.has(r.l[0]));
+  if (q.st === 'heard') rows = rows.filter(r => heard.has(r.l[0]));
+  if (q.st === 'progress') rows = rows.filter(r => !heard.has(r.l[0]) && resume[r.l[0]]);
+  if (q.st === 'new') rows = rows.filter(r => isNew(r.l));
+  return rows;
+}
+const SORTS = {
+  num: ['بترتيب الدروس', (a, b) => a.i - b.i], numd: ['بترتيب الدروس، من الآخر', (a, b) => b.i - a.i],
+  new: ['الأحدث أولاً', (a, b) => (b.l[4] || '').localeCompare(a.l[4] || '') || b.i - a.i], old: ['الأقدم أولاً', (a, b) => (a.l[4] || '').localeCompare(b.l[4] || '') || a.i - b.i],
+  long: ['الأطول أولاً', (a, b) => b.l[3] - a.l[3]], short: ['الأقصر أولاً', (a, b) => a.l[3] - b.l[3]]
+};
+const sel = (name, label, opts, val) => `<label class="fl"><span>${label}</span><select data-q="${name}">${opts.map(([v, t]) => `<option value="${esc(v)}"${String(v) === String(val ?? '') ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
+let fopen = innerWidth > 640;
+const fbox = (q, inner) => { const n = ['cat', 'book', 'sort', 'st', 'len', 'year'].filter(k => q[k]).length;
+  return `<details class="fbox"${fopen ? ' open' : ''}><summary>التصفية والترتيب${n ? ` (${AR(n)})` : ''}</summary><div class="fgrid">${inner}</div></details>`; };
+document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('fbox')) fopen = e.target.open; }, true);
+function pager(total, page, per) {
+  const n = Math.ceil(total / per); if (n <= 1) return '';
+  const nums = [...new Set([1, 2, page - 1, page, page + 1, n - 1, n].filter(x => x >= 1 && x <= n))].sort((a, b) => a - b);
+  let out = '', prev = 0;
+  for (const x of nums) { if (x - prev > 1) out += '<span class="gap">…</span>'; out += x === page ? `<span class="pg on" aria-current="page">${AR(x)}</span>` : `<button class="pg" type="button" data-page="${x}" aria-label="الصفحة ${AR(x)}">${AR(x)}</button>`; prev = x; }
+  return `<nav class="pager" aria-label="الصفحات">
+    <button class="pg w" type="button" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>السابق</button>${out}
+    <button class="pg w" type="button" data-page="${page + 1}" ${page >= n ? 'disabled' : ''}>التالي</button></nav>`;
+}
+function lessonRow(r, opts) {
+  const l = r.l, at = resume[l[0]], h = heard.has(l[0]);
+  const st = [opts.book ? `<a class="bk" href="/book/${r.b.id}/">${esc(r.b.title)}</a>` : '', hijri(l[4]), h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
+  return `<li class="lesson${l[0] === opts.now ? ' now' : ''}${h ? ' heard' : ''}"><span class="no">${AR(l[1])}</span>
+    <span class="tx"><span class="tt">${opts.mark ? opts.mark(title(l)) : esc(title(l))}</span><span class="ss">${st}</span></span>
+    <span class="du">${mins(l[3])}</span>
+    <button class="pl" type="button" data-play="${l[0]}" aria-label="تشغيل ${esc(title(l))}">${I.play}</button></li>`;
+}
+function activeChips(q, names) {
+  const on = Object.keys(names).filter(k => q[k]);
+  if (!on.length) return '';
+  return `<div class="active">${on.map(k => `<button class="chip x" type="button" data-clear="${k}" aria-label="إزالة ${esc(names[k](q[k]))}">${esc(names[k](q[k]))} ✕</button>`).join('')}
+    ${on.length > 1 ? '<button class="chip x" type="button" data-clear="*">مسح الكل</button>' : ''}</div>`;
+}
+const markWords = q => s => { let out = esc(s); for (const w of (q || '').trim().split(/\s+/)) if (w.length > 1) out = out.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), m => `<mark>${m}</mark>`); return out; };
+function keepFocus(fn) { const a = document.activeElement, id = a && a.id, pos = a && a.selectionStart; fn(); if (id) { const n = document.getElementById(id); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch { } } } }
+
 function bookPage(id, ei = 0) {
   const b = BOOK[id]; if (!b) return notFound();
   ei = Math.min(ei, b.exps.length - 1);
-  const e = b.exps[ei];
+  const e = b.exps[ei], q = Q(), PER = 50;
   setHero(`<div class="sub-hero"><div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:end">
     <div><div class="k rise">${esc(b.cat)}</div><h1 class="rise" style="animation-delay:.08s">${esc(b.title)}</h1>${b.author ? `<div class="a rise" style="animation-delay:.14s">${esc(b.author)}</div>` : ''}</div>
     ${b.exps.length > 1 ? `<div class="tabs rise" role="tablist" aria-label="الشرح" style="animation-delay:.2s">${b.exps.map((x, i) =>
       `<button type="button" role="tab" aria-selected="${i === ei}" data-exp="${i}">${esc(x.label)} (${dars(x.lessons.length)})</button>`).join('')}</div>` : ''}
   </div></div>`);
   const done = e.lessons.filter(l => heard.has(l[0])).length;
-  let list = e.lessons.map((l, i) => [l, i]);
-  if (bookState.hide) list = list.filter(([l]) => !heard.has(l[0]));
-  if (bookState.q) { const q = norm(bookState.q); list = list.filter(([l]) => norm(title(l)).includes(q) || AR(l[1]) === bookState.q || String(l[1]) === q); }
-  if (bookState.order === 'desc') list.reverse();
-  const shown = list.slice(0, bookState.show);
-  const cur = current(), nowId = cur && cur.b === b ? cur.l[0] : null;
+  let rows = applyFilters(e.lessons.map((l, i) => ({ l, b, i })), q);
+  rows.sort(SORTS[q.sort] ? SORTS[q.sort][1] : SORTS.num[1]);
+  const pages = Math.max(1, Math.ceil(rows.length / PER)), page = Math.min(Math.max(1, +q.page || 1), pages);
+  const shown = rows.slice((page - 1) * PER, page * PER);
+  const cur = current(), now = cur && cur.b === b ? cur.l[0] : null;
   const firstUnheard = e.lessons.find(l => !heard.has(l[0]));
+  const years = [...new Set(e.lessons.map(l => hYear(l[4])).filter(Boolean))].sort((a, b) => b - a);
   main.innerHTML = `<div class="panel rise">
     <div class="tools">
       ${e.lessons.length <= 60 ? `<div class="beads" aria-hidden="true">${e.lessons.map(l => `<span class="${heard.has(l[0]) ? 'on' : ''}"></span>`).join('')}</div>` : ''}
       <span class="n">سمعت ${AR(done)} من ${AR(e.lessons.length)}، من ${hijri(e.from)} إلى ${hijri(e.to)}</span>
       <span class="sp"></span>
-      <label class="find">${I.find}<span class="sr">ابحث في الدروس</span><input id="bq" type="search" placeholder="ابحث في هذا الشرح أو رقم الدرس" value="${esc(bookState.q)}"></label>
-      <button class="btn" type="button" data-order aria-pressed="${bookState.order === 'desc'}">${bookState.order === 'desc' ? 'الأحدث أولاً' : 'من الأول'}</button>
-      <button class="btn" type="button" data-hide aria-pressed="${bookState.hide}">إخفاء ما سمعته</button>
       ${firstUnheard ? `<button class="btn" type="button" data-play="${firstUnheard[0]}" style="background:var(--green);color:var(--ivory);border-color:var(--green)">${done ? 'أكمل من الدرس ' + AR(firstUnheard[1]) : 'ابدأ من الدرس ' + AR(firstUnheard[1])}</button>` : ''}
     </div>
-    <ol class="lessons">${shown.map(([l]) => {
-      const at = resume[l[0]], h = heard.has(l[0]);
-      const st = [hijri(l[4]), h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
-      return `<li class="lesson${l[0] === nowId ? ' now' : ''}${h ? ' heard' : ''}"><span class="no">${AR(l[1])}</span>
-        <span class="tx"><span class="tt">${esc(title(l))}</span><span class="ss">${st}</span></span>
-        <span class="du">${mins(l[3])}</span>
-        <button class="pl" type="button" data-play="${l[0]}" aria-label="تشغيل الدرس ${AR(l[1])}">${I.play}</button></li>`; }).join('') || '<li class="empty">لا توجد دروس مطابقة</li>'}</ol>
-    ${list.length > shown.length ? `<button class="btn more" type="button" data-more>عرض ${AR(Math.min(80, list.length - shown.length))} درساً آخر</button>` : ''}
+    <div class="filters">
+      <label class="find">${I.find}<span class="sr">ابحث في الدروس</span><input id="fq" data-q="q" type="search" placeholder="ابحث في هذا الشرح أو برقم الدرس" value="${esc(q.q || '')}"></label>
+      ${fbox(q, `${sel('sort', 'الترتيب', Object.entries(SORTS).map(([k, v]) => [k === 'num' ? '' : k, v[0]]), q.sort)}
+      ${sel('st', 'حالتي', [['', 'الكل'], ...Object.entries(STS)], q.st)}
+      ${sel('len', 'المدة', [['', 'أي مدة'], ...Object.entries(LENS).map(([k, v]) => [k, v[0]])], q.len)}
+      ${years.length > 1 ? sel('year', 'السنة', [['', 'كل السنوات'], ...years.map(y => [y, AR(y) + 'هـ'])], q.year) : ''}`)}
+    </div>
+    ${activeChips(q, { q: v => `«${v}»`, st: v => STS[v] || v, len: v => (LENS[v] || [v])[0], year: v => AR(v) + 'هـ' })}
+    <div class="count">${rows.length === e.lessons.length ? '' : `${dars(rows.length)} مطابقة. `}${rows.length > PER ? `عرض ${AR((page - 1) * PER + 1)}–${AR(Math.min(page * PER, rows.length))} من ${AR(rows.length)}` : ''}</div>
+    <ol class="lessons">${shown.map(r => lessonRow(r, { now, mark: q.q && markWords(q.q) })).join('') || '<li class="empty">لا توجد دروس مطابقة. <button class="chip" type="button" data-clear="*">مسح التصفية</button></li>'}</ol>
+    ${pager(rows.length, page, PER)}
     <div style="height:16px"></div></div>`;
-  const bq = $('#bq'); bq.oninput = () => { bookState.q = bq.value.trim(); bookState.show = 80; const pos = bq.selectionStart; bookPage(id, ei); const n = $('#bq'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
-function searchPage(q) {
-  setHero(`<div class="sub-hero"><div class="k">البحث</div><h1>«${esc(q)}»</h1></div>`);
-  const nq = norm(q).trim(); if (!nq) { main.innerHTML = '<p class="empty">اكتب كلمة للبحث</p>'; return; }
-  const words = nq.split(/\s+/);
-  const books = C.books.filter(b => words.every(w => b.norm.includes(w)));
-  const hits = [];
-  for (const b of C.books) b.exps.forEach(e => e.lessons.forEach(l => {
-    const t = norm(title(l) + ' ' + b.title);
-    if (words.every(w => t.includes(w))) hits.push({ b, l });
-  }));
-  hits.sort((a, b) => (b.l[4] || '').localeCompare(a.l[4] || ''));
-  const mark = s => { let out = esc(s); for (const w of q.trim().split(/\s+/)) if (w.length > 1) out = out.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), m => `<mark>${m}</mark>`); return out; };
-  main.innerHTML = `<div class="panel" style="padding:8px 26px 20px">
-    ${books.length ? `<h2 style="font-family:var(--f-title);font-size:24px;margin:16px 0 8px">الكتب</h2><div class="grid">${books.map(bookCard).join('')}</div>` : ''}
-    <h2 style="font-family:var(--f-title);font-size:24px;margin:24px 0 8px">الدروس <span style="font-size:15px;color:var(--soft)">(${AR(hits.length)})</span></h2>
-    ${hits.length ? `<ul class="results">${hits.slice(0, 150).map(({ b, l }) => `<li><button type="button" data-play="${l[0]}">
-      <span class="lesson" style="border:0;flex:1;min-height:0"><span class="no">${AR(l[1])}</span><span class="tx"><span class="b">${esc(b.title)}</span><span class="t" style="display:block">${mark(title(l))}</span><span class="ss">${hijri(l[4])}، ${mins(l[3])}</span></span></span></button></li>`).join('')}</ul>`
-      : '<p class="empty">لم نجد دروساً بهذه الكلمات. جرّب كلمة أقصر أو اسم الباب.</p>'}</div>`;
+function lessonsPage() {
+  const q = Q(), PER = 30;
+  const all = []; for (const b of C.books) b.exps.forEach(e => e.lessons.forEach((l, i) => all.push({ l, b, i })));
+  let rows = applyFilters(all, q);
+  rows.sort(SORTS[q.sort] ? SORTS[q.sort][1] : SORTS.new[1]);
+  const pages = Math.max(1, Math.ceil(rows.length / PER)), page = Math.min(Math.max(1, +q.page || 1), pages);
+  const shown = rows.slice((page - 1) * PER, page * PER);
+  const pool = q.cat ? C.books.filter(b => b.cat === q.cat) : C.books;
+  const years = [...new Set(all.map(r => hYear(r.l[4])).filter(Boolean))].sort((a, b) => b - a);
+  const nq = norm(q.q || '').trim(), books = nq ? C.books.filter(b => nq.split(/\s+/).every(w => b.norm.includes(w))) : [];
+  setHero(`<div class="sub-hero"><div class="k">${q.q ? 'نتائج البحث' : 'كل الدروس'}</div><h1>${q.q ? `«${esc(q.q)}»` : 'جميع الدروس'}</h1>
+    <div class="a">${dars(rows.length)}${rows.length !== all.length ? ` من ${AR(all.length)}` : ''}</div></div>`);
+  main.innerHTML = `<div class="panel rise">
+    <div class="filters">
+      <label class="find">${I.find}<span class="sr">ابحث</span><input id="fq" data-q="q" type="search" placeholder="ابحث عن درس أو باب أو كتاب" value="${esc(q.q || '')}"></label>
+      ${fbox(q, `${sel('cat', 'الفن', [['', 'كل الفنون'], ...C.cats.map(c => [c.name, c.name])], q.cat)}
+      ${sel('book', 'الكتاب', [['', 'كل الكتب'], ...pool.map(b => [b.id, b.title])], q.book)}
+      ${sel('sort', 'الترتيب', [['', 'الأحدث أولاً'], ['old', 'الأقدم أولاً'], ['long', 'الأطول أولاً'], ['short', 'الأقصر أولاً']], q.sort)}
+      ${sel('st', 'حالتي', [['', 'الكل'], ...Object.entries(STS)], q.st)}
+      ${sel('len', 'المدة', [['', 'أي مدة'], ...Object.entries(LENS).map(([k, v]) => [k, v[0]])], q.len)}
+      ${sel('year', 'السنة', [['', 'كل السنوات'], ...years.map(y => [y, AR(y) + 'هـ'])], q.year)}`)}
+    </div>
+    ${activeChips(q, { q: v => `«${v}»`, cat: v => v, book: v => BOOK[v]?.title || v, st: v => STS[v] || v, len: v => (LENS[v] || [v])[0], year: v => AR(v) + 'هـ' })}
+    ${books.length && page === 1 ? `<div style="padding:4px 26px 8px"><div class="count" style="padding:0 0 8px">كتب مطابقة</div><div class="grid">${books.slice(0, 8).map(bookCard).join('')}</div></div>` : ''}
+    <div class="count">${rows.length > PER ? `عرض ${AR((page - 1) * PER + 1)}–${AR(Math.min(page * PER, rows.length))} من ${AR(rows.length)}` : ''}</div>
+    <ol class="lessons">${shown.map(r => lessonRow(r, { book: true, mark: q.q && markWords(q.q) })).join('') || '<li class="empty">لم نجد دروساً مطابقة. جرّب كلمة أقصر أو أزل بعض التصفية. <button class="chip" type="button" data-clear="*">مسح التصفية</button></li>'}</ol>
+    ${pager(rows.length, page, PER)}
+    <div style="height:16px"></div></div>`;
 }
 
 function mine() {
@@ -164,41 +243,52 @@ function mine() {
 }
 function notFound() { setHero(''); main.innerHTML = '<p class="empty">الصفحة غير موجودة. <a href="/">العودة إلى الرئيسية</a></p>'; }
 
-/* ---------- routing: clean paths, no # (/, /book/<id>/, /book/<id>/<n>/, /search/?q=, /mine/) ---------- */
-let lastRoute = '';
+/* ---------- routing: clean paths, no # (/, /book/<id>/, /book/<id>/<n>/, /lessons/?q=&…, /mine/) ---------- */
 const bookUrl = (id, ei) => `/book/${id}/${ei ? (ei + 1) + '/' : ''}`;
-function go(url, replace) { history[replace ? 'replaceState' : 'pushState'](null, '', url); route(); if (!replace) scrollTo({ top: 0 }); }
+function go(url, replace, keepScroll) {
+  history[replace ? 'replaceState' : 'pushState'](null, '', url);
+  keepFocus(route);
+  if (!keepScroll) scrollTo({ top: 0 });
+}
 function route() {
   const parts = decodeURIComponent(location.pathname).split('/').filter(Boolean);
-  const key = parts.slice(0, 2).join('/');
-  if (key !== lastRoute) bookState = { order: 'asc', hide: false, q: '', show: 80 };
-  lastRoute = key;
+  if (parts[0] === 'search') { history.replaceState(null, '', '/lessons/' + location.search); return route(); }
   document.querySelectorAll('[data-nav]').forEach(a => a.removeAttribute('aria-current'));
-  const nav = parts[0] === 'book' && ['khutbah', 'yawm'].includes(parts[1]) ? parts[1] : parts[0] === 'mine' ? 'mine' : !parts.length ? 'home' : '';
+  const nav = parts[0] === 'book' && ['khutbah', 'yawm'].includes(parts[1]) ? parts[1] : ['mine', 'lessons'].includes(parts[0]) ? parts[0] : !parts.length ? 'home' : '';
   if (nav) $(`[data-nav="${nav}"]`)?.setAttribute('aria-current', 'page');
+  if (parts[0] !== 'lessons' && document.activeElement !== $('#q')) $('#q').value = '';
   if (!parts.length) home();
   else if (parts[0] === 'book') bookPage(parts[1], Math.max(0, (+parts[2] || 1) - 1));
-  else if (parts[0] === 'search') { const q = new URLSearchParams(location.search).get('q') || ''; $('#q').value = q; searchPage(q); }
+  else if (parts[0] === 'lessons') { if (document.activeElement !== $('#q')) $('#q').value = Q().q || ''; lessonsPage(); }
   else if (parts[0] === 'mine') mine();
   else notFound();
-  document.title = (parts[0] === 'book' && BOOK[parts[1]] ? BOOK[parts[1]].title + ' | ' : '') + 'دروس الشيخ عمر بن حمد الحركان';
+  document.title = (parts[0] === 'book' && BOOK[parts[1]] ? BOOK[parts[1]].title + ' | ' : parts[0] === 'lessons' ? (Q().q ? `«${Q().q}» | ` : 'كل الدروس | ') : '') + 'دروس الشيخ عمر بن حمد الحركان';
 }
-addEventListener('popstate', route);
+addEventListener('popstate', () => keepFocus(route));
 
 document.addEventListener('click', e => {
   const t = e.target.closest('button,a'); if (!t) return;
   if (t.dataset.play) { play(t.dataset.play); return; }
   if (t.dataset.cat) { catFilter = t.dataset.cat; home(); $('#all').scrollIntoView({ block: 'start' }); return; }
   if (t.dataset.exp != null) { go(bookUrl(location.pathname.split('/')[2], +t.dataset.exp)); return; }
-  if (t.hasAttribute('data-order')) { bookState.order = bookState.order === 'asc' ? 'desc' : 'asc'; route(); return; }
-  if (t.hasAttribute('data-hide')) { bookState.hide = !bookState.hide; route(); return; }
-  if (t.hasAttribute('data-more')) { bookState.show += 80; route(); return; }
+  if (t.dataset.page) { setQ({ page: t.dataset.page === '1' ? '' : t.dataset.page }, true); (main.querySelector('.filters') || main).scrollIntoView({ block: 'start' }); return; }
+  if (t.dataset.clear) { if (t.dataset.clear === '*') go(location.pathname, false, true); else setQ({ [t.dataset.clear]: '' }, true); return; }
   // same-site links open without reloading the page (the player keeps playing)
   if (t.tagName === 'A' && t.origin === location.origin && !t.target && !t.hasAttribute('download') && !/\.(xml|json|txt)$/.test(t.pathname)
       && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); go(t.pathname + t.search); }
 });
-$('#searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) go('/search/?q=' + encodeURIComponent(q)); });
-let st; $('#q').addEventListener('input', () => { clearTimeout(st); st = setTimeout(() => { const q = $('#q').value.trim(); if (q.length > 1) go('/search/?q=' + encodeURIComponent(q), location.pathname.startsWith('/search')); }, 350); });
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.q) { const patch = { [t.dataset.q]: t.value }; if (t.dataset.q === 'cat') patch.book = ''; setQ(patch, true); }
+  if (t.id === 'bsort') { bookSort = t.value; home(); }
+  if (t.id === 'bstat') { bookStatus = t.value; home(); }
+});
+let ft; document.addEventListener('input', e => {
+  if (e.target.id !== 'fq') return;
+  clearTimeout(ft); const v = e.target.value; ft = setTimeout(() => setQ({ q: v.trim() }), 250);
+});
+$('#searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('#q').value.trim(); go('/lessons/' + (q ? '?q=' + encodeURIComponent(q) : '')); });
+let st; $('#q').addEventListener('input', () => { clearTimeout(st); st = setTimeout(() => { const q = $('#q').value.trim(); if (q.length > 1) go('/lessons/?q=' + encodeURIComponent(q), location.pathname.startsWith('/lessons'), location.pathname.startsWith('/lessons')); }, 300); });
 
 /* ---------- player (YouTube embed: small in listen mode, large on «عرض المرئي») ---------- */
 let yt = null, ytReady = false, cur = null, pendingStart = 0, tick = null;
