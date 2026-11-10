@@ -1,0 +1,42 @@
+name: Daily lessons sync
+
+# Lists the channel, rebuilds data/catalog.json and feed.xml, and commits if anything changed.
+# Cloudflare Pages redeploys on every push to main, so new lessons go live a minute later.
+on:
+  schedule:
+    - cron: "0 19 * * *"   # 22:00 Riyadh time, after the evening lessons
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: List the channel
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python3 -I tools/crawl.py
+      - name: Build the catalog and feed
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: python3 -I tools/build_catalog.py
+      - name: Commit if anything changed
+        run: |
+          git config user.name "catalog-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data feed.xml
+          if git diff --cached --quiet; then echo "No new lessons"; exit 0; fi
+          git commit -m "Add new lessons"
+          git pull -q --rebase origin main
+          git push

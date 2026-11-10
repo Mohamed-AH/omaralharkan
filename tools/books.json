@@ -1,0 +1,18 @@
+{
+ "_about": "Display data per series key (keys come from tools/rules.py). cat = section; author = shown under the title; split = explanations of the same book, newest first, by first-lesson date; hidden = not shown on the site. 'moves' puts a single video in a series by hand: {video id: series key}.",
+ "cats": ["العقيدة", "الحديث", "التفسير", "الفقه", "السيرة والتاريخ", "النحو", "الآداب والتزكية", "خطب ومحاضرات", "متفرقات"],
+ "catmap": {"السيرة": "السيرة والتاريخ", "الآداب": "الآداب والتزكية", "التزكية": "الآداب والتزكية", "أصول الفقه": "الفقه", "غير مصنف": "متفرقات", "دروس ضيوف": "متفرقات"},
+ "books": {
+  "tawhid": {"title": "كتاب التوحيد", "author": "للإمام محمد بن عبد الوهاب رحمه الله", "split": [{"from": "2026-10-01", "label": "الشرح الحالي"}, {"from": "0000-00-00", "label": "الشرح السابق"}]},
+  "bukhari": {"title": "التعليق على صحيح البخاري", "author": "للإمام البخاري رحمه الله"},
+  "barbahari": {"title": "التعليق على شرح السنة للبربهاري", "author": "للإمام البربهاري رحمه الله"},
+  "raheeq": {"title": "الرحيق المختوم", "author": "للشيخ صفي الرحمن المباركفوري رحمه الله"},
+  "sadi": {"title": "التعليق على تفسير ابن سعدي", "author": "للشيخ عبد الرحمن بن سعدي رحمه الله"},
+  "lumah": {"title": "لمعة الاعتقاد", "author": "للإمام ابن قدامة المقدسي رحمه الله"},
+  "akhsar": {"title": "أخصر المختصرات", "author": "لابن بلبان الحنبلي رحمه الله"},
+  "zad": {"title": "زاد المستقنع", "author": "للحجاوي رحمه الله"},
+  "sinani": {"hidden": true},
+  "untitled": {"hidden": true}
+ },
+ "moves": {}
+}
