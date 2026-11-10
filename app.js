@@ -373,7 +373,7 @@ addEventListener('pagehide', () => { if (cur && yt && yt.getCurrentTime) { const
 
 /* ---------- start ---------- */
 fetch('/data/catalog.json').then(r => r.json()).then(data => {
-  C = data; index(); showSpeed();
+  C = data; index(); showSpeed(); $('#pp').innerHTML = I.play;
   $('#updated').textContent = hijri(C.updated);
   route();
   store.set('visit', C.updated);
