@@ -26,8 +26,17 @@ Optionally set an Actions variable `SITE_URL` (e.g. `https://omaralharkan.com/`)
 ## Cloudflare Pages
 Workers & Pages → Create → Pages → Connect to Git → this repo.
 - Production branch: `main`
-- Framework preset: None · Build command: *(empty)* · Build output directory: `/`
+- Framework preset: None · Build command: `python3 -I tools/build_site.py` · Build output directory: `_site`
+- Environment variables: `SITE_URL` = the canonical address (e.g. `https://omaralharkan.com/`), optional `GSC_VERIFICATION` = the Search Console HTML-tag token
 Every push (including the daily sync's commits) redeploys. `_headers` sets basic security headers.
 
+## Addresses (no # anywhere)
+`/` · `/book/<key>/` · `/book/<key>/2/` (a book's second explanation) · `/search/?q=` · `/mine/`.
+`tools/build_site.py` writes a real page for each address with its own title, description, canonical link and the lesson list
+pre-rendered, plus `sitemap.xml` and `robots.txt` (search and «ما أتابعه» are noindex). Submit `sitemap.xml` in Search Console.
+
+## Upload without GitHub
+`python3 -I tools/build_site.py` then zip the *contents* of `_site/` and upload it in Cloudflare (Pages → Upload assets).
+
 ## Local preview
-`python3 -m http.server` in the repo folder, then open http://localhost:8000.
+`python3 -I tools/build_site.py && cd _site && python3 -m http.server`, then open http://localhost:8000.

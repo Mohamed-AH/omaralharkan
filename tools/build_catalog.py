@@ -26,7 +26,7 @@ def secs(badge):
     return s
 
 BOILER = [r'"?\s*قناة الشيخ عمر.*?الرسمية\s*"?\s*(بثًا|بثا)?\s*(مباشرًا|مباشرا|مباشر)?ا?', r'لفضيلة\s*الشيخ\s*[:/]?\s*عمر.*?(حفظه الله|الحركان)\.?',
-           r'(شرح|للشيخ|الشيخ)\s*عمر بن ح.?م.?د الح.?ر.?ك.?ان\s*(حفظه الله|حفظك الله)?\.?', r'\|\s*الشيخ عمر بن حمد الحركان حفظه الله', r'^\s*(بدأت|ستبدأ|بدأ)\s*(قناة)?\s*', r'"?\s*قناة الشيخ.{0,25}?الرسمية\s*"?', r'حفظ(ه|ك) الله\s*[.،,]?', r'(فضيلة\s*)?الشيخ\s*[:/]?\s*عمر\s*(بن\s*حَ?مَ?د\s*)?الحَ?رْ?كان', r'(اليوم\s*)?(في\s*)?سلس(ل)?[ةه]\s*(يوم\s*)?من التاريخ\s*[؛،,.]?\s*(اليوم)?\s*[\d٠-٩]*\s*\.?', r'^\s*[،,]\s*']
+           r'(شرح|للشيخ|الشيخ)\s*عمر بن ح.?م.?د الح.?ر.?ك.?ان\s*(حفظه الله|حفظك الله)?\.?', r'\|\s*الشيخ عمر بن حمد الحركان حفظه الله', r'^\s*(بدأت|ستبدأ|بدأ)\s*(قناة)?\s*', r'"?\s*قناة الشيخ.{0,25}?الرسمية\s*"?', r'حفظ(ه|ك) الله\s*[.،,]?', r'(فضيلة\s*)?الشيخ\s*[:/]?\s*عمر\s*(بن\s*حَ?مَ?د\s*)?الحَ?رْ?كان', r'(اليوم\s*)?(في\s*)?سلس(ل)?[ةه]\s*(يوم\s*)?من التاريخ\s*[؛،,.]?\s*(اليوم)?\s*[\d٠-٩]*\s*\.?', r'^\s*[،,]\s*', r'\bالرسمية\b', r'بث(ًا|ا)\s*مباشر(ًا|ا)?']
 def topic(title, key, num):
     """A short lesson name: the title without the channel boilerplate, the book's name, the lesson number and dates."""
     t = title
@@ -128,7 +128,7 @@ SITE = os.environ.get('SITE_URL', 'https://omaralharkan.pages.dev/').rstrip('/')
 from xml.sax.saxutils import escape as x
 by_id = {l[0]: (b, l) for b in out_books for e in b['exps'] for l in e['lessons']}
 newest = sorted(by_id.values(), key=lambda bl: bl[1][4], reverse=True)[:40]
-items = ''.join(f"""<item><title>{x(b['title'])}: {x(l[2] or 'الدرس ' + str(l[1]).translate(AR))}</title><link>{SITE}#/book/{b['id']}</link>
+items = ''.join(f"""<item><title>{x(b['title'])}: {x(l[2] or 'الدرس ' + str(l[1]).translate(AR))}</title><link>{SITE}book/{b['id']}/</link>
 <guid isPermaLink="false">{l[0]}</guid><pubDate>{datetime.datetime.fromisoformat(l[4]).strftime('%a, %d %b %Y 12:00:00 +0300')}</pubDate>
 <enclosure url="https://www.youtube.com/watch?v={l[0]}" type="text/html" length="0"/></item>""" for b, l in newest if l[4])
 open(os.path.join(ROOT, 'feed.xml'), 'w', encoding='utf-8').write(f"""<?xml version="1.0" encoding="utf-8"?>

@@ -58,7 +58,7 @@ function contCard(x, big) {
 }
 function bookCard(b, i) {
   const all = b.exps[0].lessons, done = all.filter(l => heard.has(l[0])).length;
-  return `<a class="card rise" style="animation-delay:${(.1 + i * .05).toFixed(2)}s" href="#/book/${b.id}">
+  return `<a class="card rise" style="animation-delay:${(.1 + i * .05).toFixed(2)}s" href="/book/${b.id}/">
     <span class="c">${esc(b.cat)}</span><span class="t">${esc(b.title)}</span>
     ${done ? `<span class="bar"><i style="width:${(done / all.length * 100).toFixed(1)}%"></i></span>` : ''}
     <span class="m"><span>${dars(b.count)}</span><span class="${b.ongoing ? 'on' : ''}">${b.ongoing ? 'يُشرح الآن' : 'مكتمل'}</span></span></a>`;
@@ -80,7 +80,7 @@ function home() {
   const ongoing = C.books.filter(b => b.ongoing);
   main.innerHTML = `
     ${nl ? `<div class="strip rise" style="animation-delay:.45s"><span class="k">${nl.l[4] === C.updated ? 'جديد اليوم' : 'أحدث درس'}</span>
-      <a class="t" href="#/book/${nl.b.id}">${esc(nl.b.title)}: ${esc(title(nl.l))}</a><span class="d">${hijri(nl.l[4])}، ${mins(nl.l[3])}</span>
+      <a class="t" href="/book/${nl.b.id}/">${esc(nl.b.title)}: ${esc(title(nl.l))}</a><span class="d">${hijri(nl.l[4])}، ${mins(nl.l[3])}</span>
       <button class="go" type="button" data-play="${nl.l[0]}">استمع ←</button></div>` : ''}
     ${catFilter === 'الكل' ? `<section class="block"><div class="head"><div><h2>يُشرح الآن</h2><div class="n">شروح قائمة تُضاف إليها الدروس</div></div></div>
       <div class="grid">${ongoing.map(bookCard).join('')}</div></section>` : ''}
@@ -88,7 +88,7 @@ function home() {
       <div class="chips" role="group" aria-label="الفن">${cats.map(c => `<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${c === catFilter}">${esc(c)}</button>`).join('')}</div></div>
       <div class="grid">${big.map(bookCard).join('')}</div>
       ${small.length ? `<h3 style="font-family:var(--f-title);font-size:24px;margin:40px 0 8px">رسائل ودروس قصيرة</h3>
-        <ul class="small-list">${small.map(b => `<li><a href="#/book/${b.id}"><span>${esc(b.title)}</span><span>${dars(b.count)}</span></a></li>`).join('')}</ul>` : ''}
+        <ul class="small-list">${small.map(b => `<li><a href="/book/${b.id}/"><span>${esc(b.title)}</span><span>${dars(b.count)}</span></a></li>`).join('')}</ul>` : ''}
     </section>`;
 }
 
@@ -162,39 +162,43 @@ function mine() {
     '<p class="empty">لم تبدأ درساً بعد. اختر شرحاً من الصفحة الرئيسية، وسيظهر هنا لتكمل من حيث توقفت.</p>'}</div>`;
   for (const el of main.querySelectorAll('.cont')) { el.style.background = 'var(--green)'; }
 }
-function notFound() { setHero(''); main.innerHTML = '<p class="empty">الصفحة غير موجودة. <a href="#/">العودة إلى الرئيسية</a></p>'; }
+function notFound() { setHero(''); main.innerHTML = '<p class="empty">الصفحة غير موجودة. <a href="/">العودة إلى الرئيسية</a></p>'; }
 
-/* ---------- routing ---------- */
+/* ---------- routing: clean paths, no # (/, /book/<id>/, /book/<id>/<n>/, /search/?q=, /mine/) ---------- */
 let lastRoute = '';
+const bookUrl = (id, ei) => `/book/${id}/${ei ? (ei + 1) + '/' : ''}`;
+function go(url, replace) { history[replace ? 'replaceState' : 'pushState'](null, '', url); route(); if (!replace) scrollTo({ top: 0 }); }
 function route() {
-  const h = decodeURIComponent(location.hash.slice(1) || '/');
-  const [path, qs] = h.split('?');
-  const parts = path.split('/').filter(Boolean);
-  if (h !== lastRoute && !(parts[0] === 'book' && lastRoute.startsWith('/book/' + parts[1]))) bookState = { order: 'asc', hide: false, q: '', show: 80 };
-  lastRoute = h;
+  const parts = decodeURIComponent(location.pathname).split('/').filter(Boolean);
+  const key = parts.slice(0, 2).join('/');
+  if (key !== lastRoute) bookState = { order: 'asc', hide: false, q: '', show: 80 };
+  lastRoute = key;
   document.querySelectorAll('[data-nav]').forEach(a => a.removeAttribute('aria-current'));
   const nav = parts[0] === 'book' && ['khutbah', 'yawm'].includes(parts[1]) ? parts[1] : parts[0] === 'mine' ? 'mine' : !parts.length ? 'home' : '';
   if (nav) $(`[data-nav="${nav}"]`)?.setAttribute('aria-current', 'page');
   if (!parts.length) home();
-  else if (parts[0] === 'book') bookPage(parts[1], +(parts[2] || 0));
-  else if (parts[0] === 'search') { const q = new URLSearchParams(qs).get('q') || ''; $('#q').value = q; searchPage(q); }
+  else if (parts[0] === 'book') bookPage(parts[1], Math.max(0, (+parts[2] || 1) - 1));
+  else if (parts[0] === 'search') { const q = new URLSearchParams(location.search).get('q') || ''; $('#q').value = q; searchPage(q); }
   else if (parts[0] === 'mine') mine();
   else notFound();
   document.title = (parts[0] === 'book' && BOOK[parts[1]] ? BOOK[parts[1]].title + ' | ' : '') + 'دروس الشيخ عمر بن حمد الحركان';
 }
-addEventListener('hashchange', () => { route(); scrollTo({ top: 0 }); });
+addEventListener('popstate', route);
 
 document.addEventListener('click', e => {
   const t = e.target.closest('button,a'); if (!t) return;
   if (t.dataset.play) { play(t.dataset.play); return; }
   if (t.dataset.cat) { catFilter = t.dataset.cat; home(); $('#all').scrollIntoView({ block: 'start' }); return; }
-  if (t.dataset.exp != null) { location.hash = `#/book/${location.hash.split('/')[2]}/${t.dataset.exp}`; return; }
+  if (t.dataset.exp != null) { go(bookUrl(location.pathname.split('/')[2], +t.dataset.exp)); return; }
   if (t.hasAttribute('data-order')) { bookState.order = bookState.order === 'asc' ? 'desc' : 'asc'; route(); return; }
   if (t.hasAttribute('data-hide')) { bookState.hide = !bookState.hide; route(); return; }
   if (t.hasAttribute('data-more')) { bookState.show += 80; route(); return; }
+  // same-site links open without reloading the page (the player keeps playing)
+  if (t.tagName === 'A' && t.origin === location.origin && !t.target && !t.hasAttribute('download') && !/\.(xml|json|txt)$/.test(t.pathname)
+      && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); go(t.pathname + t.search); }
 });
-$('#searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) location.hash = '#/search?q=' + encodeURIComponent(q); });
-let st; $('#q').addEventListener('input', () => { clearTimeout(st); st = setTimeout(() => { const q = $('#q').value.trim(); if (q.length > 1) location.replace('#/search?q=' + encodeURIComponent(q)); }, 350); });
+$('#searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) go('/search/?q=' + encodeURIComponent(q)); });
+let st; $('#q').addEventListener('input', () => { clearTimeout(st); st = setTimeout(() => { const q = $('#q').value.trim(); if (q.length > 1) go('/search/?q=' + encodeURIComponent(q), location.pathname.startsWith('/search')); }, 350); });
 
 /* ---------- player (YouTube embed: small in listen mode, large on «عرض المرئي») ---------- */
 let yt = null, ytReady = false, cur = null, pendingStart = 0, tick = null;
@@ -269,7 +273,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape') setBig(false); });
 addEventListener('pagehide', () => { if (cur && yt && yt.getCurrentTime) { const t = yt.getCurrentTime(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } } });
 
 /* ---------- start ---------- */
-fetch('data/catalog.json').then(r => r.json()).then(data => {
+fetch('/data/catalog.json').then(r => r.json()).then(data => {
   C = data; index(); showSpeed();
   $('#updated').textContent = hijri(C.updated);
   route();
