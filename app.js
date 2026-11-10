@@ -254,8 +254,8 @@ function route() {
   const parts = decodeURIComponent(location.pathname).split('/').filter(Boolean);
   if (parts[0] === 'search') { history.replaceState(null, '', '/lessons/' + location.search); return route(); }
   document.querySelectorAll('[data-nav]').forEach(a => a.removeAttribute('aria-current'));
-  const nav = parts[0] === 'book' && ['khutbah', 'yawm'].includes(parts[1]) ? parts[1] : ['mine', 'lessons'].includes(parts[0]) ? parts[0] : !parts.length ? 'home' : '';
-  if (nav) $(`[data-nav="${nav}"]`)?.setAttribute('aria-current', 'page');
+  let nav = parts[0] === 'book' && ['khutbah', 'yawm'].includes(parts[1]) ? parts[1] : ['mine', 'lessons'].includes(parts[0]) ? parts[0] : !parts.length ? 'home' : '';
+  if (nav) document.querySelectorAll(`[data-nav="${nav}"]`).forEach(a => a.setAttribute('aria-current', 'page'));
   if (parts[0] !== 'lessons' && document.activeElement !== $('#q')) $('#q').value = '';
   if (!parts.length) home();
   else if (parts[0] === 'book') bookPage(parts[1], Math.max(0, (+parts[2] || 1) - 1));
@@ -368,12 +368,22 @@ function closePlayer() {  // keep the place, stop the sound, hide the bar
   keepFocus(route);
 }
 $('#close').onclick = closePlayer;
+
+/* phones: bottom nav and the «المزيد» sheet */
+const sheet = $('#sheet'), sheetBg = $('#sheetBg');
+function openSheet(on) { sheet.hidden = sheetBg.hidden = !on; $('#bnMore').setAttribute('aria-expanded', on); if (on) $('#sheetX').focus(); }
+$('#bnMore').onclick = () => openSheet(sheet.hidden);
+$('#sheetX').onclick = sheetBg.onclick = () => openSheet(false);
+sheet.addEventListener('click', e => { if (e.target.closest('a')) openSheet(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) openSheet(false); });
+$('#bnSearch').onclick = () => { scrollTo({ top: 0, behavior: 'smooth' }); $('#q').focus(); };
 addEventListener('keydown', e => { if (e.key === 'Escape') setBig(false); });
 addEventListener('pagehide', () => { if (cur && yt && yt.getCurrentTime) { const t = yt.getCurrentTime(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } } });
 
 /* ---------- start ---------- */
 fetch('/data/catalog.json').then(r => r.json()).then(data => {
-  C = data; index(); showSpeed(); $('#pp').innerHTML = I.play;
+  C = data; index(); showSpeed();
+  $('#sheetCats').innerHTML = C.cats.map(c => `<li><a href="/lessons/?cat=${encodeURIComponent(c.name)}">${esc(c.name)} <span>${dars(c.count)}</span></a></li>`).join(''); $('#pp').innerHTML = I.play;
   $('#updated').textContent = hijri(C.updated);
   route();
   store.set('visit', C.updated);
