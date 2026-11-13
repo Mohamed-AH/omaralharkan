@@ -5,8 +5,11 @@ const AR = n => String(n).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
   return AR(h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`); };
-const dars = n => n === 1 ? 'درس واحد' : n === 2 ? 'درسان' : n <= 10 ? `${AR(n)} دروس` : `${AR(n)} درساً`;
-const mins = s => s ? (s < 3600 ? `${AR(Math.round(s / 60))} د` : fmt(s)) : '';
+// Arabic counted nouns follow the last two digits: ١٠٠ درس، ١٠٣ دروس، ١١١ درساً
+const count = (n, one, two, few, many, sing) => { const r = n % 100; return n === 1 ? one : n === 2 ? two : r === 0 || r === 1 || r === 2 ? `${AR(n)} ${sing}` : r <= 10 ? `${AR(n)} ${few}` : `${AR(n)} ${many}`; };
+const dars = n => count(n, 'درس واحد', 'درسان', 'دروس', 'درساً', 'درس');
+const mins = s => s ? (s < 3600 ? count(Math.max(1, Math.round(s / 60)), 'دقيقة', 'دقيقتان', 'دقائق', 'دقيقة', 'دقيقة') : fmt(s)) : '';
+const hyear = iso => { if (!iso) return ''; try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-arab', { year: 'numeric' }).format(new Date(iso + 'T12:00:00')); } catch { return AR(iso.slice(0, 4)); } };
 const hijri = iso => { if (!iso) return ''; try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-arab', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(iso + 'T12:00:00')); } catch { return AR(iso); } };
 const norm = s => String(s || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
   .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).toLowerCase();
@@ -61,7 +64,7 @@ function bookCard(b, i) {
   return `<a class="card rise" style="animation-delay:${(.1 + i * .05).toFixed(2)}s" href="/book/${b.id}/">
     <span class="c">${esc(b.cat)}</span><span class="t">${esc(b.title)}</span>
     ${done ? `<span class="bar"><i style="width:${(done / all.length * 100).toFixed(1)}%"></i></span>` : ''}
-    <span class="m"><span>${dars(b.count)}</span><span class="${b.ongoing ? 'on' : ''}">${b.ongoing ? 'يُشرح الآن' : 'مكتمل'}</span></span></a>`;
+    <span class="m"><span>${dars(b.count)}</span><span class="${b.ongoing ? 'on' : ''}">${b.ongoing ? 'يُشرح الآن' : 'آخر درس ' + hyear(b.last)}</span></span></a>`;
 }
 
 let catFilter = 'الكل', bookSort = 'cat', bookStatus = 'all';
@@ -91,7 +94,7 @@ function home() {
       <div class="chips" role="group" aria-label="الفن">${cats.map(c => `<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${c === catFilter}">${esc(c)}</button>`).join('')}</div></div>
       <div class="filters" style="padding:0 0 18px">
         <label class="fl"><span>الترتيب</span><select id="bsort">${[['cat', 'حسب الفن'], ['count', 'الأكثر دروساً'], ['last', 'آخر درس أولاً'], ['abc', 'أبجدياً']].map(([v, t]) => `<option value="${v}"${v === bookSort ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
-        <label class="fl"><span>الحالة</span><select id="bstat">${[['all', 'الكل'], ['on', 'يُشرح الآن'], ['done', 'مكتمل']].map(([v, t]) => `<option value="${v}"${v === bookStatus ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label class="fl"><span>الحالة</span><select id="bstat">${[['all', 'الكل'], ['on', 'يُشرح الآن'], ['done', 'شروح سابقة']].map(([v, t]) => `<option value="${v}"${v === bookStatus ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
         <a class="btn" href="/lessons/" style="display:inline-flex;align-items:center;text-decoration:none;align-self:end">تصفّح كل الدروس ←</a>
       </div>
       <div class="grid">${big.map(bookCard).join('') || '<p class="empty">لا توجد شروح بهذه التصفية</p>'}</div>

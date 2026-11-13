@@ -18,7 +18,8 @@ e = lambda s: html.escape(str(s), quote=True)
 NAME = 'دروس الشيخ عمر بن حمد الحركان'
 
 def dars(n):
-    return 'درس واحد' if n == 1 else 'درسان' if n == 2 else f'{str(n).translate(AR)} دروس' if n <= 10 else f'{str(n).translate(AR)} درساً'
+    r = n % 100
+    return 'درس واحد' if n == 1 else 'درسان' if n == 2 else f'{str(n).translate(AR)} درس' if r in (0, 1, 2) else f'{str(n).translate(AR)} دروس' if r <= 10 else f'{str(n).translate(AR)} درساً'
 
 def page(path, title, desc, hero, body, index=True):
     url = SITE + path

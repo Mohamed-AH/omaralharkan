@@ -73,12 +73,33 @@ def guess(t):
     if n>=230: return 'bukhari',n
     if 40<=n<=164: return 'raheeq',n
     return None,None
+# Books whose early sessions are numbered in words («المجلس الحادي عشر») and form one sequence with the
+# numbered ones. Not for series whose numbering restarts per surah or per biography (أسباب النزول، سير أعلام النبلاء).
+WORDS={'tawhid','bukhari'}
+UNITS={'الاول':1,'الحادي':1,'الثاني':2,'الثالث':3,'الرابع':4,'الخامس':5,'السادس':6,'السابع':7,'الثامن':8,'التاسع':9,'العاشر':10}
+TENS={'العشرون':20,'والعشرون':20,'الثلاثون':30,'والثلاثون':30,'الاربعون':40,'والاربعون':40}
+def ordinal(n):
+    # «المجلس الحادي والعشرون» -> 21, «[المجلس السابع] عشر» -> 17
+    m=re.search(r'المجلس\W*((?:ال|و)\S+(?:\W+(?:عشر|و?ال\S+ون))?)',n)
+    if not m: return None
+    w=re.sub(r'[^\w ]',' ',m.group(1)).split()
+    u=UNITS.get(w[0]); t=TENS.get(w[0])
+    if t: return t
+    if u is None: return None
+    if len(w)>1 and w[1]=='عشر': return u+10 if u<10 else None
+    if len(w)>1 and w[1] in TENS: return u+TENS[w[1]]
+    return u
+def number(n, words=False):
+    n=re.sub(r'\d{4}/\d{1,2}/\d{1,2}',' ',n)   # Hijri dates glued to the lesson number: «الدرس94١٤٤٤/٢/١٢»
+    n=re.sub(r'(?:^|\s)ص\s*\d+',' ',n)          # page numbers: «ص ٣٨٩»
+    m=NUM.search(n.strip()); num=next((int(g) for g in (m.groups() if m else []) if g),None)
+    if num is None and re.search(r'الدرس\W*الاول\b', n): return 1
+    return num if num is not None or not words else ordinal(n)
 def classify(t):
     n=norm(t)
     for k,d,c,rx in BOOKS:
         if re.search(rx,n):
-            m=NUM.search(n); num=next((int(g) for g in (m.groups() if m else []) if g),None)
-            return k,num
+            return k,number(n, k in WORDS)
     return None,None
 UNTITLED=re.compile(r'^((بدات|ستبدا) قناه\s*|بدون عنوان)$')
 if __name__=='__main__':
