@@ -15,7 +15,9 @@ a listen mode, and an RSS feed of new lessons. No build step: `index.html`, `sty
 - A video in the wrong book, or left in «متفرقات»: add `"<video id>": "<book key>"` under `moves` in `tools/books.json`.
 - A whole new series: add a line to `BOOKS` in `tools/rules.py` (key, title, section, title pattern).
 - Hide a series: `"hidden": true` under its key in `tools/books.json`.
-- A book explained more than once: give it a `split` list in `tools/books.json` (see `tawhid`).
+- A wrong lesson number: `"<video id>": <number>` (or `null`) under `nums`; a bad lesson name: `"<video id>": "<name>"` under `titles`.
+- A book taught more than once is split into separate series automatically (numbering restarts after a break of more than
+  30 days). To set the split dates by hand instead, give the book a `split` list in `tools/books.json`.
 Then run `python3 -I tools/build_catalog.py` (or let the daily job do it).
 
 ## Daily sync
@@ -28,7 +30,12 @@ Workers & Pages → Create → Pages → Connect to Git → this repo.
 - Production branch: `main`
 - Framework preset: None · Build command: `python3 -I tools/build_site.py` · Build output directory: `_site`
 - Environment variables: `SITE_URL` = the canonical address (e.g. `https://omaralharkan.com/`), optional `GSC_VERIFICATION` = the Search Console HTML-tag token
-Every push (including the daily sync's commits) redeploys. `_headers` sets basic security headers.
+Every push (including the daily sync's commits) redeploys. `_headers` sets the security headers, including a
+Content-Security-Policy that allows only this site, Google Fonts and YouTube; a new outside service must be added there.
+
+## Share images
+`og/` holds the 1200×630 pictures shown when a page is shared (one for the site, one per book). After adding a book, run
+`node tools/make_share_images.js` (needs Playwright) and commit `og/`. A book without a picture uses `og/site.jpg`.
 
 ## Addresses (no # anywhere)
 `/` · `/book/<key>/` · `/book/<key>/2/` (a book's second explanation) · `/search/?q=` · `/mine/`.

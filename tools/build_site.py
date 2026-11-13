@@ -21,16 +21,33 @@ def dars(n):
     r = n % 100
     return 'درس واحد' if n == 1 else 'درسان' if n == 2 else f'{str(n).translate(AR)} درس' if r in (0, 1, 2) else f'{str(n).translate(AR)} دروس' if r <= 10 else f'{str(n).translate(AR)} درساً'
 
-def page(path, title, desc, hero, body, index=True):
+def hdate(iso):
+    return iso.replace('-', '/').translate(AR) + 'م' if iso else ''
+
+def video(l, b):
+    m, sec = divmod(l[3] or 0, 60); h, m = divmod(m, 60)
+    v = {'@type': 'VideoObject', 'name': f'{b["title"]}: ' + (l[2] or 'الدرس ' + str(l[1]).translate(AR)),
+         'description': f'{b["title"]}، الدرس {str(l[1]).translate(AR)}، لفضيلة الشيخ عمر بن حمد الحركان.',
+         'thumbnailUrl': f'https://i.ytimg.com/vi/{l[0]}/hqdefault.jpg', 'embedUrl': f'https://www.youtube-nocookie.com/embed/{l[0]}',
+         'url': f'https://www.youtube.com/watch?v={l[0]}', 'inLanguage': 'ar'}
+    if l[4]: v['uploadDate'] = l[4]
+    if l[3]: v['duration'] = f'PT{h}H{m}M{sec}S'
+    return v
+
+def page(path, title, desc, hero, body, index=True, img='site', ld=None):
     url = SITE + path
     head = (f'<link rel="canonical" href="{e(url)}">\n<meta property="og:type" content="website">\n<meta property="og:title" content="{e(title)}">\n'
             f'<meta property="og:description" content="{e(desc)}">\n<meta property="og:url" content="{e(url)}">\n<meta property="og:locale" content="ar_SA">\n'
+            + f'<meta property="og:image" content="{SITE}og/{img}.jpg">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n'
+            + '<meta name="twitter:card" content="summary_large_image">\n'
+            + ('<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n' if ld else '')
             + ('' if index else '<meta name="robots" content="noindex,follow">\n')
             + (f'<meta name="google-site-verification" content="{e(VERIFY)}">\n' if VERIFY else ''))
     s = TPL.replace('<title>دروس الشيخ عمر بن حمد الحركان</title>', f'<title>{e(title)}</title>')
     s = re.sub(r'<meta name="description" content="[^"]*">', lambda m: f'<meta name="description" content="{e(desc)}">', s, count=1)
     s = s.replace('</head>', head + '</head>', 1)
     s = s.replace('<div id="heroSlot"></div>', f'<div id="heroSlot">{hero}</div>', 1)
+    s = s.replace('<span id="updated"></span>', f'<span id="updated">{e(hdate(C["updated"]))}</span>', 1)
     s = s.replace('<main id="main" class="wrap" tabindex="-1"></main>', f'<main id="main" class="wrap" tabindex="-1">{body}</main>', 1)
     d = os.path.join(OUT, path)
     os.makedirs(d, exist_ok=True)
@@ -45,7 +62,11 @@ urls = []
 cards = ''.join(f'<li><a href="/book/{b["id"]}/">{e(b["title"])}</a> ({dars(b["count"])})</li>' for b in C['books'])
 urls.append(page('', NAME, 'شروح المتون العلمية لفضيلة الشيخ عمر بن حمد الحركان: كتاب التوحيد، صحيح البخاري، شرح السنة للبربهاري، الرحيق المختوم وغيرها، مرتبة كتاباً كتاباً مع الاستماع والمتابعة.',
                  f'<div class="hero"><div class="who"><small>دروس فضيلة الشيخ</small><h1>عمر بن حَمَد الحَرْكان</h1></div></div>',
-                 f'<section class="block"><h2>الشروح</h2><ul>{cards}</ul></section>'))
+                 f'<section class="block"><h2>الشروح</h2><ul>{cards}</ul></section>',
+                 ld={'@context': 'https://schema.org', '@graph': [
+                     {'@type': 'WebSite', 'name': NAME, 'url': SITE, 'inLanguage': 'ar',
+                      'potentialAction': {'@type': 'SearchAction', 'target': SITE + 'lessons/?q={q}', 'query-input': 'required name=q'}},
+                     {'@type': 'Person', 'name': 'عمر بن حمد الحركان', 'sameAs': [C['channel']]}]}))
 
 # one page per book, and per explanation when a book was explained more than once
 for b in C['books']:
@@ -57,14 +78,23 @@ for b in C['books']:
         desc = f'{b["title"]}{label}: {dars(len(x["lessons"]))} لفضيلة الشيخ عمر بن حمد الحركان' + (f'، منها: {topics}' if topics else '') + '.'
         urls.append(page(path, f'{b["title"]}{label} | {NAME}', desc[:300],
                          f'<div class="sub-hero"><div class="k">{e(b["cat"])}</div><h1>{e(b["title"])}</h1>' + (f'<div class="a">{e(b["author"])}</div>' if b['author'] else '') + '</div>',
-                         f'<div class="panel"><ol class="lessons">{lis}</ol></div>'))
+                         f'<div class="panel"><ol class="lessons">{lis}</ol></div>',
+                         img=b['id'] if os.path.exists(os.path.join(ROOT, 'og', b['id'] + '.jpg')) else 'site',
+                         ld={'@context': 'https://schema.org', '@type': 'ItemList', 'name': f'{b["title"]}{label}', 'numberOfItems': len(x['lessons']),
+                             'itemListElement': [{'@type': 'ListItem', 'position': i + 1, 'item': video(l, b)} for i, l in enumerate(x['lessons'][:100])]}))
 
-urls.append(page('lessons/', f'كل الدروس | {NAME}', 'جميع دروس الشيخ عمر بن حمد الحركان مع البحث والتصفية حسب الفن والكتاب والسنة والمدة.', '', ''))
+BY = {b['id']: b for b in C['books']}
+recent = sorted(((l, b) for b in C['books'] for x in b['exps'] for l in x['lessons']), key=lambda t: t[0][4], reverse=True)[:30]
+lis = ''.join(f'<li><a href="https://www.youtube.com/watch?v={l[0]}" rel="noopener">{e(l[2] or "الدرس " + str(l[1]).translate(AR))}</a> (<a href="/book/{b["id"]}/">{e(b["title"])}</a>)</li>' for l, b in recent)
+urls.append(page('lessons/', f'كل الدروس | {NAME}', 'جميع دروس الشيخ عمر بن حمد الحركان مع البحث والتصفية حسب الفن والكتاب والسنة والمدة.',
+                 f'<div class="sub-hero"><div class="k">كل الدروس</div><h1>جميع الدروس</h1></div>',
+                 f'<div class="panel"><h2>أحدث الدروس</h2><ol class="lessons">{lis}</ol></div>'))
 page('search/', f'البحث | {NAME}', 'ابحث في دروس الشيخ عمر بن حمد الحركان.', '', '', index=False)
 page('mine/', f'ما أتابعه | {NAME}', 'الدروس التي تتابعها على هذا الجهاز.', '', '', index=False)
 nf = TPL.replace('<title>دروس الشيخ عمر بن حمد الحركان</title>', f'<title>الصفحة غير موجودة | {NAME}</title>').replace('</head>', '<meta name="robots" content="noindex">\n</head>', 1)
 open(os.path.join(OUT, '404.html'), 'w', encoding='utf-8').write(nf)
 
+if os.path.isdir(os.path.join(ROOT, 'og')): shutil.copytree(os.path.join(ROOT, 'og'), os.path.join(OUT, 'og'))
 for f in ('styles.css', 'app.js', 'feed.xml', '_headers'):
     shutil.copy(os.path.join(ROOT, f), OUT)
 os.makedirs(os.path.join(OUT, 'data'))
