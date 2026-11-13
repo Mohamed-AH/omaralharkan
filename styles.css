@@ -87,8 +87,8 @@ section.block{margin-top:56px}
 /* book page */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;margin-top:-26px;position:relative}
 .tabs{display:flex;flex-wrap:wrap;padding:4px;border-radius:999px;background:rgba(0,0,0,.2);border:1px solid rgba(226,199,146,.3);gap:2px}
-.tabs button{height:40px;padding:0 16px;border-radius:999px;border:0;background:transparent;color:var(--ivory);font-size:14px}
-.tabs button[aria-selected="true"]{background:var(--gold-l);color:var(--green);font-weight:600}
+.tabs a{display:inline-flex;align-items:center;text-decoration:none;height:40px;padding:0 16px;border-radius:999px;border:0;background:transparent;color:var(--ivory);font-size:14px}
+.tabs a[aria-current="page"]{background:var(--gold-l);color:var(--green);font-weight:600}
 .tools{padding:18px 26px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .beads{display:flex;gap:4px;flex-wrap:wrap;max-width:420px}
 .beads span{width:10px;height:10px;border-radius:50%;border:1px solid var(--line)}
@@ -155,7 +155,7 @@ footer a{color:var(--gold)}
 /* filters, active filters, pager */
 .filters{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:end;padding:16px 26px 6px}
 .filters .find{height:44px;max-width:none;flex:2 1 240px}
-.fl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--soft);flex:1 1 140px;max-width:220px}
+.fl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--soft);flex:1 1 96px;max-width:220px}
 .fl select{height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:14px;color:var(--ink);max-width:100%}
 .active{display:flex;flex-wrap:wrap;gap:6px;padding:6px 26px 0}
 .chip.x{height:34px;font-size:13px;background:var(--gold-l);border-color:var(--gold-l);color:var(--green)}
@@ -173,7 +173,7 @@ footer a{color:var(--gold)}
 .fbox>summary{display:none}
 .fgrid{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:end}
 .filters .find{flex:1 1 100%;max-width:560px}
-@media (max-width:760px){
+@media (max-width:900px){
   .fbox{display:block;flex:1 1 100%}
   .fbox>summary{display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;cursor:pointer;list-style:none}
   .fbox>summary::after{content:"▾";margin-inline-start:auto;color:var(--soft)}
@@ -185,7 +185,7 @@ footer a{color:var(--gold)}
 
 /* bottom nav and «المزيد» sheet (phones) */
 .bottomnav,.sheet,.sheet-bg{display:none}
-@media (max-width:760px){
+@media (max-width:900px){
   .topnav{display:none!important}
   .top{gap:12px}
   .brand{flex:0 0 auto}
@@ -206,3 +206,18 @@ footer a{color:var(--gold)}
   .sheet li a{display:flex;justify-content:space-between;align-items:center;min-height:50px;border-bottom:1px solid var(--line);text-decoration:none;font-size:16px}
   .sheet li a span{font-size:13px;color:var(--soft)}
 }
+
+/* audit batch 2 */
+.search:focus-within{outline:2px solid var(--gold-l);outline-offset:2px}
+.find:focus-within{outline:2px solid var(--gold);outline-offset:2px}
+h1[tabindex="-1"]:focus,h2[tabindex="-1"]:focus{outline:none}
+.nw{white-space:nowrap}
+.lesson .bk{padding-block:6px}
+footer a{display:inline-block;padding-block:6px}
+@media (max-width:400px){
+  .lesson{gap:10px}
+  .lesson .no{width:30px;font-size:18px}
+  .lesson .tt{font-size:17px;line-height:1.35}
+}
+.fl{min-width:0}
+.fl select{width:100%;min-width:0}
