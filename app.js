@@ -151,7 +151,7 @@ function pager(total, page, per) {
 }
 function lessonRow(r, opts) {
   const l = r.l, at = resume[l[0]], h = heard.has(l[0]);
-  const st = [opts.book ? `<a class="bk" href="/book/${r.b.id}/">${esc(r.b.title)}</a>` : '', hijri(l[4]), h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
+  const st = [opts.book ? `<a class="bk" href="/book/${r.b.id}/">${esc(r.b.title)}</a>` : '', `<span class="nw">${hijri(l[4])}</span>`, h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
   return `<li class="lesson${l[0] === opts.now ? ' now' : ''}${h ? ' heard' : ''}"><span class="no">${AR(l[1])}</span>
     <span class="tx"><span class="tt">${opts.mark ? opts.mark(title(l)) : esc(title(l))}</span><span class="ss">${st}</span></span>
     <span class="du">${mins(l[3])}</span>
@@ -172,8 +172,8 @@ function bookPage(id, ei = 0) {
   const e = b.exps[ei], q = Q(), PER = 50;
   setHero(`<div class="sub-hero"><div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:end">
     <div><div class="k rise">${esc(b.cat)}</div><h1 class="rise" style="animation-delay:.08s">${esc(b.title)}</h1>${b.author ? `<div class="a rise" style="animation-delay:.14s">${esc(b.author)}</div>` : ''}</div>
-    ${b.exps.length > 1 ? `<div class="tabs rise" role="tablist" aria-label="الشرح" style="animation-delay:.2s">${b.exps.map((x, i) =>
-      `<button type="button" role="tab" aria-selected="${i === ei}" data-exp="${i}">${esc(x.label)} (${dars(x.lessons.length)})</button>`).join('')}</div>` : ''}
+    ${b.exps.length > 1 ? `<nav class="tabs rise" aria-label="الشروح" style="animation-delay:.2s">${b.exps.map((x, i) =>
+      `<a href="${bookUrl(id, i)}"${i === ei ? ' aria-current="page"' : ''}>${esc(x.label)} (${dars(x.lessons.length)})</a>`).join('')}</nav>` : ''}
   </div></div>`);
   const done = e.lessons.filter(l => heard.has(l[0])).length;
   let rows = applyFilters(e.lessons.map((l, i) => ({ l, b, i })), q);
@@ -265,20 +265,26 @@ function route() {
   else if (parts[0] === 'lessons') { if (document.activeElement !== $('#q')) $('#q').value = Q().q || ''; lessonsPage(); }
   else if (parts[0] === 'mine') mine();
   else notFound();
-  document.title = (parts[0] === 'book' && BOOK[parts[1]] ? BOOK[parts[1]].title + ' | ' : parts[0] === 'lessons' ? (Q().q ? `«${Q().q}» | ` : 'كل الدروس | ') : '') + 'دروس الشيخ عمر بن حمد الحركان';
+  const bk = parts[0] === 'book' && BOOK[parts[1]], lab = bk && bk.exps.length > 1 && (bk.exps[Math.min((+parts[2] || 1) - 1, bk.exps.length - 1)] || {}).label;
+  document.title = (bk ? bk.title + (lab ? ` (${lab})` : '') + ' | ' : parts[0] === 'mine' ? 'ما أتابعه | ' : parts[0] === 'lessons' ? (Q().q ? `«${Q().q}» | ` : 'كل الدروس | ') : '') + 'دروس الشيخ عمر بن حمد الحركان';
 }
-addEventListener('popstate', () => keepFocus(route));
+addEventListener('popstate', () => { keepFocus(route); arrived(); });
+// After moving to another page, put keyboard and screen reader focus on its heading and say where we are.
+function arrived() {
+  const h = document.querySelector('#heroSlot h1, main h1, main h2');
+  if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  const live = $('#live'); live.textContent = ''; setTimeout(() => { live.textContent = document.title.split(' | ')[0]; }, 50);
+}
 
 document.addEventListener('click', e => {
   const t = e.target.closest('button,a'); if (!t) return;
   if (t.dataset.play) { play(t.dataset.play); return; }
   if (t.dataset.cat) { catFilter = t.dataset.cat; home(); $('#all').scrollIntoView({ block: 'start' }); return; }
-  if (t.dataset.exp != null) { go(bookUrl(location.pathname.split('/')[2], +t.dataset.exp)); return; }
   if (t.dataset.page) { setQ({ page: t.dataset.page === '1' ? '' : t.dataset.page }, true); (main.querySelector('.filters') || main).scrollIntoView({ block: 'start' }); return; }
   if (t.dataset.clear) { if (t.dataset.clear === '*') go(location.pathname, false, true); else setQ({ [t.dataset.clear]: '' }, true); return; }
   // same-site links open without reloading the page (the player keeps playing)
   if (t.tagName === 'A' && t.origin === location.origin && !t.target && !t.hasAttribute('download') && !/\.(xml|json|txt)$/.test(t.pathname)
-      && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); go(t.pathname + t.search); }
+      && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); go(t.pathname + t.search); arrived(); }
 });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -357,7 +363,7 @@ $('#pp').onclick = () => { if (!yt || !yt.getPlayerState) return; yt.getPlayerSt
 $('#back').onclick = () => skip(-15); $('#fwd').onclick = () => skip(30); $('#next').onclick = next;
 $('#seek').oninput = e => { if (yt && yt.getDuration) yt.seekTo(e.target.value / 1000 * yt.getDuration(), true); };
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
-const showSpeed = () => { $('#speed').textContent = AR(String(speed).replace('.', '٫')) + '×'; };
+const showSpeed = () => { const v = AR(String(speed).replace('.', '٫')) + '×'; $('#speed').textContent = v; $('#speed').setAttribute('aria-label', 'سرعة التشغيل ' + v); };
 $('#speed').onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; store.set('speed', speed); showSpeed(); if (yt && yt.setPlaybackRate) yt.setPlaybackRate(speed); };
 function setBig(on) { P.classList.toggle('big', on); $('#scrim').hidden = !on; $('#mode').setAttribute('aria-pressed', on); $('#mode').textContent = on ? 'صوت فقط' : 'عرض المرئي'; }
 $('#mode').onclick = () => setBig(!P.classList.contains('big'));
@@ -374,10 +380,10 @@ $('#close').onclick = closePlayer;
 
 /* phones: bottom nav and the «المزيد» sheet */
 const sheet = $('#sheet'), sheetBg = $('#sheetBg');
-function openSheet(on) { sheet.hidden = sheetBg.hidden = !on; $('#bnMore').setAttribute('aria-expanded', on); if (on) $('#sheetX').focus(); }
+function openSheet(on) { const was = !sheet.hidden; sheet.hidden = sheetBg.hidden = !on; $('#bnMore').setAttribute('aria-expanded', on); if (on) $('#sheetX').focus(); else if (was && sheet.contains(document.activeElement) || document.activeElement === document.body) $('#bnMore').focus(); }
 $('#bnMore').onclick = () => openSheet(sheet.hidden);
 $('#sheetX').onclick = sheetBg.onclick = () => openSheet(false);
-sheet.addEventListener('click', e => { if (e.target.closest('a')) openSheet(false); });
+sheet.addEventListener('click', e => { if (e.target.closest('a')) { sheet.hidden = sheetBg.hidden = true; $('#bnMore').setAttribute('aria-expanded', false); } });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) openSheet(false); });
 $('#bnSearch').onclick = () => { scrollTo({ top: 0, behavior: 'smooth' }); $('#q').focus(); };
 addEventListener('keydown', e => { if (e.key === 'Escape') setBig(false); });
@@ -386,6 +392,7 @@ addEventListener('pagehide', () => { if (cur && yt && yt.getCurrentTime) { const
 /* ---------- start ---------- */
 fetch('/data/catalog.json').then(r => r.json()).then(data => {
   C = data; index(); showSpeed();
+  if (matchMedia('(max-width:400px)').matches) $('#q').placeholder = 'ابحث في الدروس';
   $('#sheetCats').innerHTML = C.cats.map(c => `<li><a href="/lessons/?cat=${encodeURIComponent(c.name)}">${esc(c.name)} <span>${dars(c.count)}</span></a></li>`).join(''); $('#pp').innerHTML = I.play;
   $('#updated').textContent = hijri(C.updated);
   route();
