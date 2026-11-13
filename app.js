@@ -279,6 +279,7 @@ function arrived() {
 document.addEventListener('click', e => {
   const t = e.target.closest('button,a'); if (!t) return;
   if (t.dataset.play) { play(t.dataset.play); return; }
+  if (t.dataset.retry) { location.reload(); return; }
   if (t.dataset.cat) { catFilter = t.dataset.cat; home(); $('#all').scrollIntoView({ block: 'start' }); return; }
   if (t.dataset.page) { setQ({ page: t.dataset.page === '1' ? '' : t.dataset.page }, true); (main.querySelector('.filters') || main).scrollIntoView({ block: 'start' }); return; }
   if (t.dataset.clear) { if (t.dataset.clear === '*') go(location.pathname, false, true); else setQ({ [t.dataset.clear]: '' }, true); return; }
@@ -397,4 +398,4 @@ fetch('/data/catalog.json').then(r => r.json()).then(data => {
   $('#updated').textContent = hijri(C.updated);
   route();
   store.set('visit', C.updated);
-}).catch(() => { main.innerHTML = '<p class="empty">تعذّر تحميل الفهرس. حدّث الصفحة.</p>'; });
+}).catch(() => { main.innerHTML = '<p class="empty">تعذّر تحميل الفهرس، تحقّق من اتصالك بالإنترنت. <button class="btn" type="button" data-retry="1">أعد المحاولة</button></p>'; });
