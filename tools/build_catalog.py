@@ -26,7 +26,13 @@ def secs(badge):
     return s
 
 BOILER = [r'"?\s*قناة الشيخ عمر.*?الرسمية\s*"?\s*(بثًا|بثا)?\s*(مباشرًا|مباشرا|مباشر)?ا?', r'لفضيلة\s*الشيخ\s*[:/]?\s*عمر.*?(حفظه الله|الحركان)\.?',
-           r'(شرح|للشيخ|الشيخ)\s*عمر بن ح.?م.?د الح.?ر.?ك.?ان\s*(حفظه الله|حفظك الله)?\.?', r'\|\s*الشيخ عمر بن حمد الحركان حفظه الله', r'^\s*(بدأت|ستبدأ|بدأ)\s*(قناة)?\s*', r'"?\s*قناة الشيخ.{0,25}?الرسمية\s*"?', r'حفظ(ه|ك) الله\s*[.،,]?', r'(فضيلة\s*)?الشيخ\s*[:/]?\s*عمر\s*(بن\s*حَ?مَ?د\s*)?الحَ?رْ?كان', r'(اليوم\s*)?(في\s*)?سلس(ل)?[ةه]\s*(يوم\s*)?من التاريخ\s*[؛،,.]?\s*(اليوم)?\s*[\d٠-٩]*\s*\.?', r'^\s*[،,]\s*', r'\bالرسمية\b', r'بث(ًا|ا)\s*مباشر(ًا|ا)?']
+           r'(شرح|للشيخ|الشيخ)\s*عمر بن ح.?م.?د الح.?ر.?ك.?ان\s*(حفظه الله|حفظك الله)?\.?', r'\|\s*الشيخ عمر بن حمد الحركان حفظه الله', r'^\s*(بدأت|ستبدأ|بدأ)\s*(قناة)?\s*', r'"?\s*قناة الشيخ.{0,25}?الرسمية\s*"?', r'حفظ(ه|ك) الله\s*[.،,]?', r'(فضيلة\s*)?الشيخ\s*[:/]?\s*عمر\s*(بن\s*حَ?مَ?د\s*)?الحَ?رْ?كان', r'(اليوم\s*)?(في\s*)?سلس(ل)?[ةه]\s*(يوم\s*)?من التاريخ\s*[؛،,.]?\s*(اليوم)?\s*[\d٠-٩]*\s*\.?', r'^\s*[،,]\s*', r'\bالرسمية\b', r'بث(ًا|ا)\s*مباشر(ًا|ا)?', r'[،,]?\s*قناة\s*(ل?(ال)?شيخ\s*)?(عمر\s*)?(بن\s*حَ?مَ?د\s*)?(ال)?حَ?رْ?كان', r'قناة(?=ال)', r'\s+قناة\s*$', r'\bبث(ًا|ا)\b', r'^\s*ت\s+(?=خطبة)', r'(لفضيلة|فضيلة)\s*الشيخ\s*[:/]?\s*عمر\s*(بن\s*حَ?مَ?د\s*)?(ال)?حَ?رْ?كان\s*(حفظه الله)?\.?', r'\s*شرح\s*$', r'حفظة الله']
+def clean(title):
+    t = re.sub(r'[\u200e\u200f\ufffc]', '', title)
+    for b in BOILER: t = re.sub(b, " ", t)
+    t = re.sub(r'[\d٠-٩]{1,4}\s*/\s*[\d٠-٩]{1,2}\s*/\s*[\d٠-٩]{1,4}\s*(?:هـ)?', '', t)
+    return re.sub(r'\s+', ' ', t).strip(' .،/|"-')
+
 def topic(title, key, num):
     """A short lesson name: the title without the channel boilerplate, the book's name, the lesson number and dates."""
     t = title
@@ -56,7 +62,49 @@ def topic(title, key, num):
     bt = META.get(key, ('', ''))[0]
     if bt and s.startswith(bt): s = s[len(bt):].lstrip(' :.·،')
     s = re.sub(r'\s+', ' ', s)
+    s = re.sub(r'[\[(]\s*المجلس[^\])]*[\])]|المجلس\s*\(\s*\d*\s*\)', '', s)
+    s = re.sub(r'^\s*(في\s+)?(ال)?نحو\s*[.،؛]?\s*', '', s) if key in ('shabrawiya', 'nahw_tatbiq', 'ajurrumiya') else s
+    s = re.sub(r'^ت\s+', '', s).strip(' .،,/')
+    s = re.sub(r'\s+', ' ', s)
+    if s in ('في', 'من', 'الدرس'): s = ''
     return s.translate(AR)
+
+def hijri_year(iso):
+    # Tabular Islamic calendar: can differ from Umm al-Qura by a day, which only matters around 1 Muharram.
+    y, m, d = map(int, iso.split('-'))
+    jd = (1461 * (y + 4800 + (m - 14) // 12)) // 4 + (367 * (m - 2 - 12 * ((m - 14) // 12))) // 12 - (3 * ((y + 4900 + (m - 14) // 12) // 100)) // 4 + d - 32075
+    l = jd - 1948440 + 10632
+    n = (l - 1) // 10631
+    l = l - 10631 * n + 354
+    j = ((10985 - l) // 5316) * ((50 * l) // 17719) + (l // 5670) * ((43 * l) // 15238)
+    l = l - ((30 - j) // 15) * ((17719 * j) // 50) - (j // 16) * ((15238 * j) // 43) + 29
+    return 30 * n + j - 30
+
+MONTHS = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة']
+def hijri_month(iso):
+    y, m, d = map(int, iso.split('-'))
+    jd = (1461 * (y + 4800 + (m - 14) // 12)) // 4 + (367 * (m - 2 - 12 * ((m - 14) // 12))) // 12 - (3 * ((y + 4900 + (m - 14) // 12) // 100)) // 4 + d - 32075
+    l = jd - 1948440 + 10632
+    n = (l - 1) // 10631
+    l = l - 10631 * n + 354
+    j = ((10985 - l) // 5316) * ((50 * l) // 17719) + (l // 5670) * ((43 * l) // 15238)
+    l = l - ((30 - j) // 15) * ((17719 * j) // 50) - (j // 16) * ((15238 * j) // 43) + 29
+    return MONTHS[(24 * l) // 709 - 1]
+
+def runs(items):
+    """Split one book's lessons into the times it was taught. A new run starts when the numbering goes back
+    to the start (lesson 1 or 2, or under half of the run so far) after a break of more than 30 days.
+    Re-uploads of old sessions keep their gap short or their numbers high, so they stay in their run."""
+    out, cur, top, last = [], [], 0, None
+    for r in sorted(items, key=lambda r: (r['date'], r['num'] or 0)):
+        gap = (datetime.date.fromisoformat(r['date']) - datetime.date.fromisoformat(last)).days if last and r['date'] else 0
+        if cur and r['num'] and top >= 3 and (r['num'] <= 2 or r['num'] < top / 2) and gap > 30:
+            out.append(cur); cur, top = [], 0
+        cur.append(r)
+        if r['num']: top = max(top, r['num'])
+        if r['date']: last = r['date']
+    if cur: out.append(cur)
+    return out
 
 rows = []
 for tab in ('streams', 'videos'):
@@ -70,6 +118,7 @@ for tab in ('streams', 'videos'):
                 guessed = bool(key)
                 key = key or 'misc'
         key = cfg['moves'].get(x['id'], key)
+        if x['id'] in cfg.get('nums', {}): num = cfg['nums'][x['id']]
         rows.append({'id': x['id'], 'title': x['t'].strip(), 'key': key, 'num': num, 'guessed': guessed,
                      'dur': secs((x.get('badge') or ['0'])[0]), 'date': dates.get(x['id'], ''), 'live': tab == 'streams'})
 
@@ -85,32 +134,53 @@ for key, items in books.items():
     title, cat = META.get(key, (key, 'متفرقات'))
     cat = cfg['catmap'].get(cat, cat)
     title = c.get('title', title)
-    splits = c.get('split') or [{'from': '0000-00-00', 'label': ''}]
+    if c.get('split'):
+        groups, left = [], sorted(items, key=lambda r: r['date'])
+        for sp in c['split']:
+            groups.append(([r for r in left if r['date'] >= sp['from']], sp['label']))
+            left = [r for r in left if r['date'] < sp['from']]
+    elif key in ('misc', 'khutbah', 'lecture', 'untitled', 'yawm'):
+        groups = [(items, '')]
+    else:
+        rs = runs(items)[::-1]  # newest first
+        years = [hijri_year(g[0]['date']) if g[0]['date'] else 0 for g in rs]
+        groups = []
+        for i, g in enumerate(rs):
+            same = [j for j, y in enumerate(years) if y == years[i]]
+            label = '' if len(rs) == 1 else f'شرح {hijri_month(g[0]["date"]) + " " if len(same) > 1 else "عام "}{str(years[i]).translate(AR)}هـ'
+            groups.append((g, label))
     exps = []
-    left = sorted(items, key=lambda r: r['date'])
-    for sp in splits:
-        mine = [r for r in left if r['date'] >= sp['from']]
-        left = [r for r in left if r['date'] < sp['from']]
+    for mine, label in groups:
         if not mine: continue
-        numbered = all(r['num'] for r in mine) and key not in ('misc', 'untitled')
-        mine.sort(key=lambda r: ((r['num'] or 0), r['date']) if numbered else (r['date'], r['id']))
-        if key not in ('misc', 'khutbah', 'lecture', 'untitled'):  # a re-upload of a lesson that was also streamed live: keep the live one
-            seen, keep = {}, []
-            for r in sorted(mine, key=lambda r: not r['live']):
-                if r['num'] and r['num'] in seen: continue
-                if r['num']: seen[r['num']] = 1
+        if key not in ('misc', 'khutbah', 'lecture', 'untitled'):
+            # Drop re-uploads: the same lesson number with (almost) the same length. Keep the live stream.
+            # Same number with a different length is a different session (a part two, or a series whose
+            # numbering restarts per surah or per biography), so it stays.
+            keep = []
+            for r in sorted(mine, key=lambda r: (not r['live'], r['date'])):
+                if r['num'] and any(k['num'] == r['num'] and abs(k['dur'] - r['dur']) <= max(60, k['dur'] * .05) for k in keep): continue
                 keep.append(r)
-            mine = sorted(keep, key=lambda r: ((r['num'] or 0), r['date']) if numbered else (r['date'], r['id']))
+            mine = keep
+        numbered = key not in ('misc', 'untitled', 'khutbah', 'lecture') and sum(1 for r in mine if r['num']) * 2 > len(mine)
+        if numbered:
+            prev = 0
+            for r in sorted(mine, key=lambda r: (r['date'], r['id'])):
+                r['sk'] = r['num'] or prev + .5
+                if r['num']: prev = r['num']
+            mine.sort(key=lambda r: (r['sk'], r['date']))
+        else:
+            mine.sort(key=lambda r: (r['date'], r['id']))
         lessons = []
         for i, r in enumerate(mine):
-            n = r['num'] if (numbered or (r['num'] and key not in ('misc','khutbah','lecture'))) else i + 1
-            t = topic(r['title'], key, r['num']) if key not in ('misc',) else re.sub(r'\s+', ' ', re.sub(BOILER[0], ' ', r['title'])).strip()
+            n = (r['num'] or 0) if numbered else i + 1
+            t = topic(r['title'], key, r['num']) if key not in ('misc',) else clean(r['title'])
+            t = cfg.get('titles', {}).get(r['id'], t)
             lessons.append([r['id'], n, t, r['dur'], r['date']])
-        exps.append({'label': sp['label'], 'from': mine[0]['date'], 'to': mine[-1]['date'], 'lessons': lessons})
+        exps.append({'label': label, 'from': mine[0]['date'], 'to': mine[-1]['date'], 'lessons': lessons})
     last = max((e['to'] for e in exps), default='')
     days = (datetime.date.fromisoformat(today) - datetime.date.fromisoformat(last)).days if last else 999
     out_books.append({'id': key, 'title': title, 'cat': cat, 'author': c.get('author', ''),
-                      'ongoing': days <= 45 and key not in ('misc', 'khutbah', 'lecture'),
+                      'ongoing': days <= 30 and len(exps[0]['lessons']) >= 3 and key not in ('misc', 'khutbah', 'lecture'),
                       'count': sum(len(e['lessons']) for e in exps), 'last': last, 'exps': exps})
 
 order = {c: i for i, c in enumerate(cfg['cats'])}
