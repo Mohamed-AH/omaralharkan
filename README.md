@@ -25,14 +25,14 @@ Then run `python3 -I tools/build_catalog.py` (or let the daily job do it).
 Add the API key once: Settings → Secrets and variables → Actions → New repository secret → `YOUTUBE_API_KEY`.
 Optionally set an Actions variable `SITE_URL` (e.g. `https://omaralharkan.com/`) for the RSS links.
 
-### On time, every two hours
+### On time, once a day
 GitHub often starts scheduled jobs hours late. `workers/sync-trigger.js` is a Cloudflare Worker whose Cron Trigger
 starts the sync on the minute:
 1. GitHub → Settings → Developer settings → Fine-grained tokens → Generate: repository `omaralharkan` only,
    permission **Actions: Read and write**. Copy the token.
 2. Cloudflare → Workers & Pages → Create → Worker → Deploy, then **Edit code**, paste `workers/sync-trigger.js`, Deploy.
 3. Worker → Settings → Variables and Secrets: add secrets `GITHUB_TOKEN` (the token) and `RUN_KEY` (any long word).
-4. Worker → Settings → Triggers → Cron Triggers: `0 3-21/2 * * *` (every two hours, 06:00 to 24:00 Riyadh time).
+4. Worker → Settings → Triggers → Cron Triggers: `0 19 * * *` (22:00 Riyadh time, every day).
 Open `https://<worker address>/run?key=<RUN_KEY>` to sync right away. The GitHub schedule stays as a backup.
 
 ## Cloudflare Pages
