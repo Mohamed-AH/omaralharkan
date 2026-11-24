@@ -36,7 +36,7 @@
 </header>
 <main id="main" class="wrap" tabindex="-1"></main>
 <footer class="wrap">
-  <div>جميع الدروس من <a href="https://www.youtube.com/@omaralharkan" rel="noopener">القناة الرسمية للشيخ على يوتيوب</a>، وتُحدَّث يومياً. آخر تحديث: <span id="updated"></span>. <a href="/feed.xml">تابع الجديد (RSS)</a></div>
+  <div>جميع الدروس من <a href="https://www.youtube.com/@omaralharkan" rel="noopener">القناة الرسمية للشيخ على يوتيوب</a> و<a href="https://t.me/omaralharkan" rel="noopener">قناته على تيليجرام</a>، وتُحدَّث يومياً. آخر تحديث: <span id="updated"></span>. <a href="/feed.xml">تابع الجديد (RSS)</a></div>
 </footer>
 
 
@@ -55,6 +55,7 @@
     <li><a href="/book/khutbah/">الخطب</a></li>
     <li><a href="/book/lecture/">المحاضرات</a></li>
     <li><a href="/book/yawm/">سلسلة يوم من التاريخ</a></li>
+    <li><a href="https://t.me/omaralharkan" rel="noopener">قناة الشيخ على تيليجرام</a></li>
     <li><a href="/feed.xml">تابع الجديد (RSS)</a></li>
   </ul>
 </div>
@@ -62,7 +63,7 @@
 <div class="sr" id="live" role="status" aria-live="polite"></div>
 <div class="player" id="player" role="region" aria-label="المشغّل" hidden>
   <div class="in">
-    <div class="video"><div id="yt"></div></div>
+    <div class="video"><div id="yt"></div><img id="art" alt=""></div>
     <button class="pp" id="pp" type="button" aria-label="تشغيل"></button>
     <button class="skip" id="back" type="button" aria-label="رجوع ١٥ ثانية">١٥−</button>
     <button class="skip" id="fwd" type="button" aria-label="تقدّم ٣٠ ثانية">+٣٠</button>
@@ -72,6 +73,7 @@
     </div>
     <button class="mode" id="speed" type="button" aria-label="سرعة التشغيل">١×</button>
     <button class="mode" id="mode" type="button" aria-pressed="false">عرض المرئي</button>
+    <a class="mode" id="dl" hidden download target="_blank" rel="noopener">تنزيل</a>
     <button class="skip" id="next" type="button" aria-label="الدرس التالي">التالي</button>
     <button class="close" id="close" type="button" aria-label="إغلاق المشغّل" title="إغلاق (يُحفظ موضعك)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>

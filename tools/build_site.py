@@ -54,6 +54,12 @@ def page(path, title, desc, hero, body, index=True, img='site', ld=None):
     open(os.path.join(d, 'index.html'), 'w', encoding='utf-8').write(s)
     return url
 
+def res(b):
+    """The book's text (PDF) and its podcast feed, under the title."""
+    out = [f'<a href="{e(C["audio"] + f["a"] if f.get("a") and C.get("audio") else C.get("tg", "https://t.me/omaralharkan") + "/" + str(f["t"]))}" rel="noopener">المتن: {e(f["n"])} (PDF)</a>' for f in b.get('pdf', [])]
+    if b.get('pod'): out.append(f'<a href="/feeds/{b["id"]}.xml">اشترك في دروس الكتاب كبودكاست</a>')
+    return f'<div class="res">{"".join(out)}</div>' if out else ''
+
 if os.path.exists(OUT): shutil.rmtree(OUT)
 os.makedirs(OUT)
 urls = []
@@ -77,7 +83,7 @@ for b in C['books']:
         topics = '، '.join(l[2] for l in x['lessons'][-6:] if l[2])
         desc = f'{b["title"]}{label}: {dars(len(x["lessons"]))} لفضيلة الشيخ عمر بن حمد الحركان' + (f'، منها: {topics}' if topics else '') + '.'
         urls.append(page(path, f'{b["title"]}{label} | {NAME}', desc[:300],
-                         f'<div class="sub-hero"><div class="k">{e(b["cat"])}</div><h1>{e(b["title"])}</h1>' + (f'<div class="a">{e(b["author"])}</div>' if b['author'] else '') + '</div>',
+                         f'<div class="sub-hero"><div class="k">{e(b["cat"])}</div><h1>{e(b["title"])}</h1>' + (f'<div class="a">{e(b["author"])}</div>' if b['author'] else '') + res(b) + '</div>',
                          f'<div class="panel"><ol class="lessons">{lis}</ol></div>',
                          img=b['id'] if os.path.exists(os.path.join(ROOT, 'og', b['id'] + '.jpg')) else 'site',
                          ld={'@context': 'https://schema.org', '@type': 'ItemList', 'name': f'{b["title"]}{label}', 'numberOfItems': len(x['lessons']),
@@ -95,8 +101,15 @@ nf = TPL.replace('<title>دروس الشيخ عمر بن حمد الحركان</
 open(os.path.join(OUT, '404.html'), 'w', encoding='utf-8').write(nf)
 
 if os.path.isdir(os.path.join(ROOT, 'og')): shutil.copytree(os.path.join(ROOT, 'og'), os.path.join(OUT, 'og'))
-for f in ('styles.css', 'app.js', 'feed.xml', '_headers'):
+for f in ('styles.css', 'app.js', 'feed.xml'):
     shutil.copy(os.path.join(ROOT, f), OUT)
+# The lessons' audio and the books' PDFs live on R2 (catalog "audio"): let the page play from there.
+hdr = open(os.path.join(ROOT, '_headers'), encoding='utf-8').read()
+m = re.match(r'https://[^/]+', C.get('audio') or '')
+if m: hdr = hdr.replace("connect-src 'self';", f"media-src 'self' {m.group(0)}; connect-src 'self';", 1)
+open(os.path.join(OUT, '_headers'), 'w', encoding='utf-8').write(hdr)
+if os.path.isdir(os.path.join(ROOT, 'feeds')):
+    shutil.copytree(os.path.join(ROOT, 'feeds'), os.path.join(OUT, 'feeds'), ignore=shutil.ignore_patterns('.gitkeep'))
 os.makedirs(os.path.join(OUT, 'data'))
 shutil.copy(os.path.join(ROOT, 'data', 'catalog.json'), os.path.join(OUT, 'data'))
 open(os.path.join(OUT, 'robots.txt'), 'w').write(f'User-agent: *\nAllow: /\nDisallow: /search/\nDisallow: /mine/\nSitemap: {SITE}sitemap.xml\n')
