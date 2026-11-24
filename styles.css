@@ -221,3 +221,17 @@ footer a{display:inline-block;padding-block:6px}
 }
 .fl{min-width:0}
 .fl select{width:100%;min-width:0}
+
+/* Telegram: the lesson's audio post, its verses / hadith range, the book's text and podcast */
+.lesson .tgl{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;color:var(--soft);text-decoration:none}
+.lesson .tgl:hover{color:var(--gold);background:rgba(140,108,53,.08)}
+.lesson .ss .rg{color:var(--ink)}
+.res{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.res a{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(226,199,146,.45);color:var(--gold-l);font-size:13px;text-decoration:none}
+.res a:hover{background:rgba(226,199,146,.12)}
+#art{display:none;width:100%;height:100%;object-fit:cover;opacity:.85}
+.player.aud:not(.big) #art{display:block}
+.player.aud:not(.big) #yt{display:none}
+a.mode{display:inline-flex;align-items:center;text-decoration:none}
+a.mode[hidden]{display:none}
+@media (max-width:640px){ .lesson .tgl{width:30px} }

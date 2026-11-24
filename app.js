@@ -16,6 +16,8 @@ const norm = s => String(s || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g,
 const I = {
   play: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l11-7z"/></svg>',
   pause: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>',
+  tg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l6 2.5M21 4l-3 16-6.5-5.5M21 4 9 13.5v5.5l2.5-3.5"/></svg>',
+  dl: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>',
   find: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'
 };
 
@@ -34,6 +36,10 @@ const saveHeard = () => store.set('heard', [...heard]);
 /* ---------- catalog ---------- */
 let C, BOOK = {}, VID = {};
 const title = (l) => l[2] || `الدرس ${AR(l[1])}`;
+// Telegram: l[5] = {t: the post with the lesson's audio, a: its copy on R2, r: verses / hadith numbers}
+const ext = l => l[5] || {};
+const audioUrl = l => C.audio && ext(l).a ? C.audio + ext(l).a : '';
+const tgUrl = t => t ? `${C.tg || 'https://t.me/omaralharkan'}/${t}` : '';
 function index() {
   for (const b of C.books) {
     BOOK[b.id] = b;
@@ -119,7 +125,7 @@ const LENS = { s: ['أقل من ٢٠ دقيقة', 0, 1200], m: ['٢٠–٤٥ د�
 const STS = { unheard: 'لم أسمعه', progress: 'بدأته ولم أكمله', heard: 'سمعته', new: 'جديد منذ آخر زيارة' };
 function applyFilters(rows, q) {
   if (q.q) { const ws = norm(q.q).trim().split(/\s+/).filter(Boolean);
-    rows = rows.filter(r => { const t = r.n || (r.n = norm(title(r.l) + ' ' + r.b.title + ' ' + r.l[1])); return ws.every(w => t.includes(w)); }); }
+    rows = rows.filter(r => { const t = r.n || (r.n = norm(title(r.l) + ' ' + r.b.title + ' ' + r.l[1] + ' ' + (ext(r.l).r || ''))); return ws.every(w => t.includes(w)); }); }
   if (q.cat) rows = rows.filter(r => r.b.cat === q.cat);
   if (q.book) rows = rows.filter(r => r.b.id === q.book);
   if (q.year) rows = rows.filter(r => String(hYear(r.l[4])) === q.year);
@@ -151,10 +157,12 @@ function pager(total, page, per) {
 }
 function lessonRow(r, opts) {
   const l = r.l, at = resume[l[0]], h = heard.has(l[0]);
-  const st = [opts.book ? `<a class="bk" href="/book/${r.b.id}/">${esc(r.b.title)}</a>` : '', `<span class="nw">${hijri(l[4])}</span>`, h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
+  const x = ext(l);
+  const st = [opts.book ? `<a class="bk" href="/book/${r.b.id}/">${esc(r.b.title)}</a>` : '', x.r ? `<span class="rg">${esc(x.r)}</span>` : '', `<span class="nw">${hijri(l[4])}</span>`, h ? 'سمعته' : at ? `<span class="g">توقفت عند ${fmt(at)}</span>` : '', isNew(l) ? '<span class="g">جديد</span>' : ''].filter(Boolean).join('، ');
   return `<li class="lesson${l[0] === opts.now ? ' now' : ''}${h ? ' heard' : ''}"><span class="no">${AR(l[1])}</span>
     <span class="tx"><span class="tt">${opts.mark ? opts.mark(title(l)) : esc(title(l))}</span><span class="ss">${st}</span></span>
     <span class="du">${mins(l[3])}</span>
+    ${x.t ? `<a class="tgl" href="${tgUrl(x.t)}" target="_blank" rel="noopener" aria-label="${esc(title(l))} في تيليجرام" title="استمع في تيليجرام">${I.tg}</a>` : '<span class="tgl"></span>'}
     <button class="pl" type="button" data-play="${l[0]}" aria-label="تشغيل ${esc(title(l))}">${I.play}</button></li>`;
 }
 function activeChips(q, names) {
@@ -171,7 +179,9 @@ function bookPage(id, ei = 0) {
   ei = Math.min(ei, b.exps.length - 1);
   const e = b.exps[ei], q = Q(), PER = 50;
   setHero(`<div class="sub-hero"><div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:end">
-    <div><div class="k rise">${esc(b.cat)}</div><h1 class="rise" style="animation-delay:.08s">${esc(b.title)}</h1>${b.author ? `<div class="a rise" style="animation-delay:.14s">${esc(b.author)}</div>` : ''}</div>
+    <div><div class="k rise">${esc(b.cat)}</div><h1 class="rise" style="animation-delay:.08s">${esc(b.title)}</h1>${b.author ? `<div class="a rise" style="animation-delay:.14s">${esc(b.author)}</div>` : ''}
+      ${b.pdf || b.pod ? `<div class="res rise" style="animation-delay:.18s">${(b.pdf || []).map(f => `<a href="${f.a && C.audio ? C.audio + f.a : tgUrl(f.t)}" target="_blank" rel="noopener">${I.dl} المتن: ${esc(f.n)} (PDF)</a>`).join('')}
+        ${b.pod ? `<a href="/feeds/${b.id}.xml" title="انسخ الرابط إلى تطبيق البودكاست">${I.tg.replace('M21 4 3 11l6 2.5M21 4l-3 16-6.5-5.5M21 4 9 13.5v5.5l2.5-3.5', 'M5 11a7 7 0 0 1 14 0M8.5 11a3.5 3.5 0 0 1 7 0M12 13v7')} اشترك في دروس الكتاب كبودكاست</a>` : ''}</div>` : ''}</div>
     ${b.exps.length > 1 ? `<nav class="tabs rise" aria-label="الشروح" style="animation-delay:.2s">${b.exps.map((x, i) =>
       `<a href="${bookUrl(id, i)}"${i === ei ? ' aria-current="page"' : ''}>${esc(x.label)} (${dars(x.lessons.length)})</a>`).join('')}</nav>` : ''}
   </div></div>`);
@@ -300,9 +310,11 @@ let ft; document.addEventListener('input', e => {
 $('#searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('#q').value.trim(); go('/lessons/' + (q ? '?q=' + encodeURIComponent(q) : '')); });
 let st; $('#q').addEventListener('input', () => { clearTimeout(st); st = setTimeout(() => { const q = $('#q').value.trim(); if (q.length > 1) go('/lessons/?q=' + encodeURIComponent(q), location.pathname.startsWith('/lessons'), location.pathname.startsWith('/lessons')); }, 300); });
 
-/* ---------- player (YouTube embed: small in listen mode, large on «عرض المرئي») ---------- */
-let yt = null, ytReady = false, cur = null, pendingStart = 0, tick = null;
-const P = $('#player');
+/* ---------- player: the lesson's own audio file when there is one (plays with the screen locked, can be downloaded),
+   otherwise the YouTube embed (small in listen mode, large on «عرض المرئي») ---------- */
+let yt = null, ytReady = false, cur = null, pendingStart = 0, tick = null, onAudio = false;
+const P = $('#player'), au = new Audio();
+au.preload = 'metadata';
 function loadYT() {
   if (window.YT || loadYT.once) return; loadYT.once = 1;
   const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
@@ -310,39 +322,77 @@ function loadYT() {
 window.onYouTubeIframeAPIReady = () => {
   yt = new YT.Player('yt', { width: '100%', height: '100%', host: 'https://www.youtube-nocookie.com',
     playerVars: { playsinline: 1, rel: 0, modestbranding: 1, hl: 'ar' },
-    events: { onReady: () => { ytReady = true; if (cur) start(); }, onStateChange: onState } });
+    events: { onReady: () => { ytReady = true; if (cur && !onAudio) start(); }, onStateChange: onState } });
 };
+// one face for both: time, length, seek, playing?
+const E = {
+  t: () => onAudio ? au.currentTime : (yt && yt.getCurrentTime ? yt.getCurrentTime() : 0),
+  d: () => (onAudio ? au.duration : (yt && yt.getDuration ? yt.getDuration() : 0)) || (cur ? cur.l[3] : 0),
+  seek: s => { if (onAudio) { if (isFinite(s)) au.currentTime = Math.max(0, s); } else if (yt && yt.seekTo) yt.seekTo(Math.max(0, s), true); },
+  playing: () => onAudio ? !au.paused : !!(yt && yt.getPlayerState && window.YT && yt.getPlayerState() === YT.PlayerState.PLAYING),
+  play: () => onAudio ? au.play().catch(() => { }) : yt && yt.playVideo && yt.playVideo(),
+  pause: () => onAudio ? au.pause() : yt && yt.pauseVideo && yt.pauseVideo()
+};
+function savePlace() { if (!cur) return; const t = E.t(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } }
 function play(vid) {
   const x = VID[vid]; if (!x) return;
+  if (cur && cur.l[0] !== vid) savePlace();
   cur = x; pendingStart = heard.has(vid) ? 0 : (resume[vid] || 0);
   recent = [{ v: vid, b: x.b.id, e: x.ei }, ...recent.filter(r => r.b !== x.b.id)].slice(0, 12); store.set('recent', recent);
   P.hidden = false; $('#nowT').textContent = title(x.l); $('#nowB').textContent = `— ${x.b.title}، الدرس ${AR(x.l[1])}`;
-  $('#dur').textContent = fmt(x.l[3]);
-  if (!ytReady) loadYT(); else start();
+  $('#dur').textContent = fmt(x.l[3]); $('#cur').textContent = fmt(pendingStart); $('#seek').value = 0;
+  const url = audioUrl(x.l), big = P.classList.contains('big');
+  $('#dl').hidden = !url; if (url) { $('#dl').href = url; $('#dl').setAttribute('aria-label', 'تنزيل ' + title(x.l)); }
+  if (url && !big) startAudio(url, pendingStart);
+  else { stopAudio(); if (!ytReady) loadYT(); else start(); }
   document.querySelectorAll('.lesson.now').forEach(el => el.classList.remove('now'));
   document.querySelector(`[data-play="${vid}"]`)?.closest('.lesson')?.classList.add('now');
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({ title: title(x.l), artist: 'الشيخ عمر بن حمد الحركان', album: x.b.title,
       artwork: [{ src: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' }] });
+    navigator.mediaSession.setActionHandler('play', E.play);
+    navigator.mediaSession.setActionHandler('pause', E.pause);
     navigator.mediaSession.setActionHandler('nexttrack', next);
     navigator.mediaSession.setActionHandler('seekbackward', () => skip(-15));
     navigator.mediaSession.setActionHandler('seekforward', () => skip(30));
   }
 }
+function startAudio(url, at) {
+  if (yt && yt.stopVideo) yt.stopVideo();
+  onAudio = true; P.classList.add('aud');
+  $('#art').src = `https://i.ytimg.com/vi/${cur.l[0]}/mqdefault.jpg`;
+  if (au.src !== url) au.src = url;
+  const go = () => { if (at) au.currentTime = at; au.playbackRate = speed; au.play().catch(() => showState()); };
+  if (au.readyState >= 1) go(); else au.addEventListener('loadedmetadata', go, { once: true });
+}
+function stopAudio() { if (onAudio) { au.pause(); onAudio = false; P.classList.remove('aud'); } }
 function start() {
   yt.loadVideoById({ videoId: cur.l[0], startSeconds: Math.floor(pendingStart) });
   yt.setPlaybackRate(speed);
 }
-function onState(ev) {
-  const playing = ev.data === YT.PlayerState.PLAYING;
+function showState() {
+  const playing = E.playing();
   $('#pp').innerHTML = playing ? I.pause : I.play; $('#pp').setAttribute('aria-label', playing ? 'إيقاف مؤقت' : 'تشغيل');
   clearInterval(tick);
-  if (playing) { yt.setPlaybackRate(speed); tick = setInterval(progress, 1000); }
+  if (playing) tick = setInterval(progress, 1000);
+}
+function onState(ev) {
+  if (onAudio) return;
+  if (ev.data === YT.PlayerState.PLAYING) yt.setPlaybackRate(speed);
+  showState();
   if (ev.data === YT.PlayerState.ENDED) { finish(); next(); }
 }
+au.addEventListener('play', () => onAudio && showState());
+au.addEventListener('pause', () => onAudio && showState());
+au.addEventListener('ended', () => { if (onAudio) { finish(); next(); } });
+au.addEventListener('error', () => {  // the file could not be loaded: fall back to YouTube from the same place
+  if (!onAudio || !cur || !au.src) return;
+  pendingStart = au.currentTime || pendingStart; stopAudio(); $('#dl').hidden = true;
+  if (!ytReady) loadYT(); else start();
+});
 function progress() {
-  if (!cur || !yt.getCurrentTime) return;
-  const t = yt.getCurrentTime(), d = yt.getDuration() || cur.l[3];
+  if (!cur) return;
+  const t = E.t(), d = E.d();
   $('#cur').textContent = fmt(t); $('#dur').textContent = fmt(d);
   if (d) $('#seek').value = Math.round(t / d * 1000);
   if (Math.floor(t) % 5 === 0) {
@@ -359,20 +409,28 @@ function next() {
   const e = cur.b.exps[cur.ei], n = e.lessons[cur.li + 1];
   if (n) play(n[0]);
 }
-const skip = s => { if (yt && yt.getCurrentTime) yt.seekTo(Math.max(0, yt.getCurrentTime() + s), true); };
-$('#pp').onclick = () => { if (!yt || !yt.getPlayerState) return; yt.getPlayerState() === YT.PlayerState.PLAYING ? yt.pauseVideo() : yt.playVideo(); };
+const skip = s => E.seek(E.t() + s);
+$('#pp').onclick = () => { if (!cur) return; E.playing() ? E.pause() : E.play(); };
 $('#back').onclick = () => skip(-15); $('#fwd').onclick = () => skip(30); $('#next').onclick = next;
-$('#seek').oninput = e => { if (yt && yt.getDuration) yt.seekTo(e.target.value / 1000 * yt.getDuration(), true); };
+$('#seek').oninput = e => { const d = E.d(); if (d) E.seek(e.target.value / 1000 * d); };
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
 const showSpeed = () => { const v = AR(String(speed).replace('.', '٫')) + '×'; $('#speed').textContent = v; $('#speed').setAttribute('aria-label', 'سرعة التشغيل ' + v); };
-$('#speed').onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; store.set('speed', speed); showSpeed(); if (yt && yt.setPlaybackRate) yt.setPlaybackRate(speed); };
-function setBig(on) { P.classList.toggle('big', on); $('#scrim').hidden = !on; $('#mode').setAttribute('aria-pressed', on); $('#mode').textContent = on ? 'صوت فقط' : 'عرض المرئي'; }
+$('#speed').onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; store.set('speed', speed); showSpeed(); au.playbackRate = speed; if (yt && yt.setPlaybackRate) yt.setPlaybackRate(speed); };
+// «عرض المرئي» moves from the audio file to the video at the same moment; «صوت فقط» moves back
+function setBig(on) {
+  if (on === P.classList.contains('big')) return;
+  P.classList.toggle('big', on); $('#scrim').hidden = !on; $('#mode').setAttribute('aria-pressed', on); $('#mode').textContent = on ? 'صوت فقط' : 'عرض المرئي';
+  if (!cur) return;
+  const url = audioUrl(cur.l), t = E.t(), was = E.playing();
+  if (on && onAudio) { pendingStart = t; stopAudio(); if (!ytReady) loadYT(); else { start(); if (!was) setTimeout(() => yt.pauseVideo && yt.pauseVideo(), 600); } }
+  else if (!on && url && !onAudio) { if (yt && yt.pauseVideo) yt.pauseVideo(); startAudio(url, t); if (!was) au.addEventListener('playing', () => au.pause(), { once: true }); }
+}
 $('#mode').onclick = () => setBig(!P.classList.contains('big'));
 $('#scrim').onclick = () => setBig(false);
 function closePlayer() {  // keep the place, stop the sound, hide the bar
-  if (cur && yt && yt.getCurrentTime) { const t = yt.getCurrentTime(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } }
-  clearInterval(tick); if (yt && yt.stopVideo) yt.stopVideo();
-  setBig(false); P.hidden = true; cur = null;
+  savePlace(); cur = null;
+  clearInterval(tick); stopAudio(); if (yt && yt.stopVideo) yt.stopVideo();
+  setBig(false); P.hidden = true;
   document.querySelectorAll('.lesson.now').forEach(el => el.classList.remove('now'));
   if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
   keepFocus(route);
@@ -388,7 +446,7 @@ sheet.addEventListener('click', e => { if (e.target.closest('a')) { sheet.hidden
 addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) openSheet(false); });
 $('#bnSearch').onclick = () => { scrollTo({ top: 0, behavior: 'smooth' }); $('#q').focus(); };
 addEventListener('keydown', e => { if (e.key === 'Escape') setBig(false); });
-addEventListener('pagehide', () => { if (cur && yt && yt.getCurrentTime) { const t = yt.getCurrentTime(); if (t > 5 && !heard.has(cur.l[0])) { resume[cur.l[0]] = t; store.set('resume', resume); } } });
+addEventListener('pagehide', savePlace);
 
 /* ---------- start ---------- */
 fetch('/data/catalog.json').then(r => r.json()).then(data => {

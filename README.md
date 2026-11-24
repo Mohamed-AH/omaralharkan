@@ -20,8 +20,40 @@ a listen mode, and an RSS feed of new lessons. No build step: `index.html`, `sty
   30 days). To set the split dates by hand instead, give the book a `split` list in `tools/books.json`.
 Then run `python3 -I tools/build_catalog.py` (or let the daily job do it).
 
+## Telegram: audio, lesson ranges and book texts
+The Sheikh's Telegram channel (https://t.me/omaralharkan) posts, for each lesson, the YouTube live link, an audio file
+and a card naming the book, lesson number, verses or hadith numbers and the Hijri date. The site uses it three ways:
+- Each lesson the channel posted gets a Telegram button (its audio post), and its verses / hadith range under the title (searchable).
+- Book pages offer the book's text (PDF) when the channel posted one.
+- With the audio copied to Cloudflare R2, the player plays the lesson's own audio file instead of the YouTube video:
+  it keeps playing with the screen locked, has a «تنزيل» button, and every book with audio gets a podcast feed at
+  `/feeds/<book>.xml` (`feed.xml` carries the audio too). «عرض المرئي» still switches to the video at the same moment.
+
+How the data is made:
+1. `tools/telegram.py` reads the public page t.me/s/omaralharkan (no login) into `data/raw/telegram.json`.
+   `python3 -I tools/telegram.py --seed result.json` rebuilds it from a Telegram Desktop export (JSON).
+2. `tools/tg_match.py` joins posts to lessons: by the card's YouTube and Telegram links first, then by the book and lesson
+   number in the audio's caption, then by the YouTube link posted just before it. `python3 -I tools/tg_match.py` lists what
+   it could not match. A PDF goes to the book its name matches; to place one by hand add `"<post id>": "<book key>"` under `pdfs` in `tools/books.json`.
+3. `tools/audio_sync.py` copies each matched audio file and PDF to R2 once and records it in `data/raw/audio.json`.
+
+### Setting up the audio copy (once)
+1. Cloudflare → R2 → Create bucket (e.g. `omaralharkan-audio`). In the bucket's Settings → Public access, connect a custom
+   domain such as `audio.omaralharkan.com` (or allow the r2.dev address). R2 → Manage API tokens → Create token with
+   «Object Read & Write» on that bucket; note the Access Key ID, Secret Access Key and the account ID.
+2. https://my.telegram.org → API development tools: create an app, note the API id and hash.
+3. On your computer: `pip install telethon && python3 tools/telegram_login.py`, sign in with an account that can see the
+   channel (a separate account for the site is best). It prints the session string.
+   Instead of an account you can use a bot that is an admin of the channel: put its token in `TG_BOT_TOKEN`.
+4. GitHub → Settings → Secrets and variables → Actions:
+   - Secrets: `TG_API_ID`, `TG_API_HASH`, `TG_SESSION` (or `TG_BOT_TOKEN`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+   - Variables: `R2_BUCKET`, `AUDIO_BASE_URL` (the bucket's public address, ending in `/`)
+5. Run the daily job by hand (Actions → Daily lessons sync → Run workflow). The first run copies the 83 files matched
+   so far (about 1.1 GB, 29 hours); anything it has no time for follows on the next run. The site's security policy allows `AUDIO_BASE_URL` automatically.
+
 ## Daily sync
-`.github/workflows/sync.yml` runs every day at 22:00 Riyadh time and on demand (Actions → Daily lessons sync → Run workflow).
+`.github/workflows/sync.yml` runs every day at 22:00 Riyadh time and on demand (Actions → Daily lessons sync → Run workflow): it lists
+the YouTube channel, reads the Telegram channel, builds the catalog, copies new audio to R2 (once set up) and builds again.
 Add the API key once: Settings → Secrets and variables → Actions → New repository secret → `YOUTUBE_API_KEY`.
 Optionally set an Actions variable `SITE_URL` (e.g. `https://omaralharkan.com/`) for the RSS links.
 

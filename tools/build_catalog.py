@@ -183,25 +183,98 @@ for key, items in books.items():
                       'ongoing': days <= 30 and len(exps[0]['lessons']) >= 3 and key not in ('misc', 'khutbah', 'lecture'),
                       'count': sum(len(e['lessons']) for e in exps), 'last': last, 'exps': exps})
 
+# Telegram: the audio post, the verses / hadith range and a name for the lessons the channel posted, and the book texts (PDF)
+def load_raw(name, default):
+    try: return json.load(open(os.path.join(RAW, name), encoding='utf-8'))
+    except Exception: return default
+TG_POSTS = load_raw('telegram.json', [])
+AUD = load_raw('audio.json', {})          # written by tools/audio_sync.py: {"base": url, "files": {post id: {k, s, d, m}}}
+FILES = AUD.get('files', {}) if AUD.get('base') else {}
+if TG_POSTS:
+    from tg_match import match, pdfs
+    lessons_by_id = {l[0]: (b['id'], l[1], l[4], l[2], l[3]) for b in out_books for e in b['exps'] for l in e['lessons']}
+    extra = match(TG_POSTS, lessons_by_id, topic)
+    for b in out_books:
+        for e in b['exps']:
+            for l in e['lessons']:
+                x = extra.get(l[0])
+                if not x: continue
+                if x.get('n') and not l[2]: l[2] = cfg.get('titles', {}).get(l[0], x['n'])
+                ex = {}
+                if x.get('t'):
+                    ex['t'] = x['t']
+                    f = FILES.get(str(x['t']))
+                    if f: ex.update(a=f['k'], s=f.get('s', 0))
+                if x.get('r') and norm(x['r']) not in norm(l[2]): ex['r'] = x['r']
+                if ex: l.append(ex)
+    books_by_key = {b['id']: b for b in out_books}
+    for key, p in pdfs(TG_POSTS, cfg.get('pdfs')):
+        if key not in books_by_key: continue
+        name = re.sub(r'\.pdf$', '', re.sub(r'[\u200e\u200f\u2066-\u2069]', '', p.get('name') or '').strip(), flags=re.I) or p['text'][:60] or books_by_key[key]['title']
+        d = {'t': p['id'], 'n': name}
+        f = FILES.get(str(p['id']))
+        if f: d['a'] = f['k']
+        books_by_key[key].setdefault('pdf', []).append(d)
+    print(sum(1 for b in out_books for e in b['exps'] for l in e['lessons'] if len(l) > 5 and 'a' in l[5]), 'lessons with audio,',
+          sum(1 for b in out_books for e in b['exps'] for l in e['lessons'] if len(l) > 5 and 't' in l[5]), 'linked to Telegram')
+
+for b in out_books:
+    if any(len(l) > 5 and l[5].get('a') for e in b['exps'] for l in e['lessons']): b['pod'] = True
+
 order = {c: i for i, c in enumerate(cfg['cats'])}
 out_books.sort(key=lambda b: (order.get(b['cat'], 99), -b['count']))
 cat_out = [{'name': c, 'count': sum(b['count'] for b in out_books if b['cat'] == c)} for c in cfg['cats']]
 latest = sorted((r for r in rows if not cfg['books'].get(r['key'], {}).get('hidden')), key=lambda r: r['date'], reverse=True)[:12]
-catalog = {'updated': today, 'channel': 'https://www.youtube.com/@omaralharkan',
+catalog = {'updated': today, 'channel': 'https://www.youtube.com/@omaralharkan', 'tg': 'https://t.me/omaralharkan', 'audio': AUD.get('base', '') if FILES else '',
            'cats': [c for c in cat_out if c['count']], 'books': out_books,
            'latest': [[r['id'], r['key']] for r in latest]}
 json.dump(catalog, open(os.path.join(ROOT, 'data', 'catalog.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 print(len(out_books), 'series,', sum(b['count'] for b in out_books), 'lessons')
 
-# feed.xml: the newest lessons, for RSS readers and «تابع الجديد»
+# feed.xml: the newest lessons, for RSS readers and «تابع الجديد». A lesson with its audio on R2 carries it as the
+# enclosure, so the feed also works in podcast apps. feeds/<book>.xml: one podcast per book that has audio.
 SITE = os.environ.get('SITE_URL', 'https://omaralharkan.pages.dev/').rstrip('/') + '/'
 from xml.sax.saxutils import escape as x
+NAME = 'دروس الشيخ عمر بن حمد الحركان'
 by_id = {l[0]: (b, l) for b in out_books for e in b['exps'] for l in e['lessons']}
+
+def lesson_name(b, l):
+    return l[2] or 'الدرس ' + str(l[1]).translate(AR)
+
+def item(b, l):
+    ex = l[5] if len(l) > 5 else {}
+    f = FILES.get(str(ex.get('t'))) if ex.get('a') else None
+    if f:
+        enc = f'<enclosure url="{x(AUD["base"] + f["k"])}" type="{x(f.get("m") or "audio/mp4")}" length="{f.get("s", 0)}"/>'
+        if f.get('d'): enc += f'<itunes:duration>{f["d"]}</itunes:duration>'
+    else:
+        enc = f'<enclosure url="https://www.youtube.com/watch?v={l[0]}" type="text/html" length="0"/>'
+    desc = f"{b['title']}، الدرس {str(l[1]).translate(AR)}" + (f"، {ex['r']}" if ex.get('r') else '') + '، لفضيلة الشيخ عمر بن حمد الحركان.'
+    return (f"""<item><title>{x(b['title'])}: {x(lesson_name(b, l))}</title><link>{SITE}book/{b['id']}/</link><description>{x(desc)}</description>
+<guid isPermaLink="false">{l[0]}</guid><pubDate>{datetime.datetime.fromisoformat(l[4]).strftime('%a, %d %b %Y 12:00:00 +0300')}</pubDate>{enc}</item>""")
+
+def channel(title, link, desc, items, img):
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>{x(title)}</title><link>{link}</link>
+<description>{x(desc)}</description><language>ar</language><itunes:author>عمر بن حمد الحركان</itunes:author>
+<itunes:image href="{SITE}og/{img}.jpg"/><itunes:category text="Religion &amp; Spirituality"><itunes:category text="Islam"/></itunes:category><itunes:explicit>false</itunes:explicit>{items}</channel></rss>
+"""
+
 newest = sorted(by_id.values(), key=lambda bl: bl[1][4], reverse=True)[:40]
-items = ''.join(f"""<item><title>{x(b['title'])}: {x(l[2] or 'الدرس ' + str(l[1]).translate(AR))}</title><link>{SITE}book/{b['id']}/</link>
-<guid isPermaLink="false">{l[0]}</guid><pubDate>{datetime.datetime.fromisoformat(l[4]).strftime('%a, %d %b %Y 12:00:00 +0300')}</pubDate>
-<enclosure url="https://www.youtube.com/watch?v={l[0]}" type="text/html" length="0"/></item>""" for b, l in newest if l[4])
-open(os.path.join(ROOT, 'feed.xml'), 'w', encoding='utf-8').write(f"""<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"><channel><title>دروس الشيخ عمر بن حمد الحركان — الجديد</title><link>{SITE}</link>
-<description>أحدث دروس فضيلة الشيخ عمر بن حمد الحركان</description><language>ar</language>{items}</channel></rss>
-""")
+open(os.path.join(ROOT, 'feed.xml'), 'w', encoding='utf-8').write(channel(
+    f'{NAME} — الجديد', SITE, 'أحدث دروس فضيلة الشيخ عمر بن حمد الحركان', ''.join(item(b, l) for b, l in newest if l[4]), 'site'))
+
+FEEDS = os.path.join(ROOT, 'feeds')
+os.makedirs(FEEDS, exist_ok=True)
+wrote = set()
+for b in out_books:
+    if not b.get('pod'): continue
+    ls = sorted((l for e in b['exps'] for l in e['lessons'] if len(l) > 5 and l[5].get('a') and l[4]), key=lambda l: l[4], reverse=True)
+    img = b['id'] if os.path.exists(os.path.join(ROOT, 'og', b['id'] + '.jpg')) else 'site'
+    open(os.path.join(FEEDS, b['id'] + '.xml'), 'w', encoding='utf-8').write(channel(
+        f"{b['title']} — الشيخ عمر الحركان", f"{SITE}book/{b['id']}/", f"{b['title']}" + (f" {b['author']}" if b['author'] else '') + '، بصوت فضيلة الشيخ عمر بن حمد الحركان.',
+        ''.join(item(b, l) for l in ls), img))
+    wrote.add(b['id'] + '.xml')
+for f in os.listdir(FEEDS):
+    if f.endswith('.xml') and f not in wrote: os.remove(os.path.join(FEEDS, f))
+if wrote: print(len(wrote), 'podcast feeds')
